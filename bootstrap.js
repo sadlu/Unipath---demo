@@ -11,6 +11,7 @@ const ask = (q) => new Promise((r) => rl.question(q, r))
 
 const PLATFORM = os.platform()
 const DIR = __dirname
+const IS_PKG = !!process.pkg  // running as standalone executable
 
 const BOLD = '\x1b[1m'
 const GREEN = '\x1b[32m'
@@ -40,14 +41,14 @@ function runCapture(cmd, args) {
   }
 }
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms))
-}
-
 // ── Checks ──
 
 async function checkNode() {
-  info('[1/4] Checking Node.js ...')
+  if (IS_PKG) {
+    ok('[1/5] Node.js bundled with setup executable')
+    return true
+  }
+  info('[1/5] Checking Node.js ...')
   const ver = runCapture('node', ['--version']).replace(/v/g, '')
   if (!ver) {
     warn('  Node.js not found')
@@ -63,7 +64,11 @@ async function checkNode() {
 }
 
 async function checkNpm() {
-  info('[2/4] Checking npm ...')
+  if (IS_PKG) {
+    ok('[2/5] npm bundled with setup executable')
+    return true
+  }
+  info('[2/5] Checking npm ...')
   const ver = runCapture('npm', ['--version'])
   if (ver) {
     ok(`  npm ${ver} found`)
@@ -74,7 +79,7 @@ async function checkNpm() {
 }
 
 async function checkPython() {
-  info('[3/4] Checking Python ...')
+  info('[3/5] Checking Python ...')
   let ver = runCapture('python3', ['--version']).replace(/^Python /, '')
   let cmd = 'python3'
   if (!ver) {
@@ -95,7 +100,7 @@ async function checkPython() {
 }
 
 async function checkVenv(pyCmd) {
-  info('[4/4] Checking Python venv ...')
+  info('[4/5] Checking Python venv ...')
   if (!pyCmd) {
     warn('  Cannot check venv without Python')
     return false
@@ -112,26 +117,24 @@ async function checkVenv(pyCmd) {
 
 // ── Installers ──
 
-async function installNodeWindows() {
-  warn('\n  Node.js is required. Download automatically?')
-  const a = await ask('  Download and install Node.js 20 LTS? [Y/n] ')
-  if (a.toLowerCase() === 'n') {
-    fail('  Please install Node.js from https://nodejs.org and re-run setup')
-    return false
-  }
-  info('  Downloading Node.js 20 LTS for Windows ...')
-  const url = 'https://nodejs.org/dist/v20.20.0/node-v20.20.0-x64.msi'
-  const dest = path.join(os.tmpdir(), 'node-installer.msi')
-  await run('curl', ['-Lo', dest, url])
-  info('  Running installer ...')
-  await run('msiexec', ['/i', dest, '/quiet', '/norestart'])
-  info('  Node.js installed. Please re-run setup after installation completes.')
-  return true
-}
-
 async function installPythonWindows() {
+  // Try winget first (built into Windows 10/11)
+  try {
+    execSync('where winget', { stdio: 'pipe' })
+    warn('\n  Python >= 3.10 is required. Install via winget?')
+    const a = await ask('  Proceed? [Y/n] ')
+    if (a.toLowerCase() !== 'n') {
+      info('  Installing Python via winget ...')
+      await run('winget', ['install', '-e', '--id', 'Python.Python.3.12', '--accept-source-agreements'])
+      info('\n  Python installed. Please re-run this setup.')
+      return true
+    }
+  } catch {
+    // winget not available, proceed to manual download
+  }
+
   warn('\n  Python >= 3.10 is required. Download automatically?')
-  const a = await ask('  Download and install Python 3.12? [Y/n] ')
+  const a = await ask('  Download Python 3.12? [Y/n] ')
   if (a.toLowerCase() === 'n') {
     fail('  Please install Python from https://www.python.org/downloads/ and re-run setup')
     return false
@@ -140,35 +143,13 @@ async function installPythonWindows() {
   const url = 'https://www.python.org/ftp/python/3.12.5/python-3.12.5-amd64.exe'
   const dest = path.join(os.tmpdir(), 'python-installer.exe')
   await run('curl', ['-Lo', dest, url])
-  info('  Running installer (ensure "Add Python to PATH" is checked) ...')
-  await run(dest, ['/quiet', 'InstallAllUsers=1', 'PrependPath=1'])
-  info('  Python installed. Please re-run setup after installation completes.')
+  info('  Running installer ...')
+  await run(dest, ['/quiet', 'InstallAllUsers=1', 'PrependPath=1', 'Include_test=0'])
+  info('  Python installed. Please re-run this setup.')
   return true
 }
 
-async function installNodeLinux() {
-  const pm = detectPkgManager()
-  if (!pm) {
-    fail('  No known package manager. Install Node.js from https://nodejs.org')
-    return false
-  }
-  warn(`  Install Node.js via ${pm}?`)
-  const a = await ask('  Proceed? [Y/n] ')
-  if (a.toLowerCase() === 'n') return false
-  const cmds = {
-    apt: 'sudo apt update && sudo apt install -y nodejs npm',
-    'apt-get': 'sudo apt-get update && sudo apt-get install -y nodejs npm',
-    dnf: 'sudo dnf install -y nodejs npm',
-    yum: 'sudo yum install -y nodejs npm',
-    pacman: 'sudo pacman -S --noconfirm nodejs npm',
-    brew: 'brew install node',
-    zypper: 'sudo zypper install -y nodejs npm',
-  }
-  await run('sh', ['-c', cmds[pm] || `echo "Install Node.js manually via ${pm}"`])
-  return true
-}
-
-async function installPythonLinux(pyCmd) {
+async function installPythonLinux() {
   const pm = detectPkgManager()
   if (!pm) {
     fail('  No known package manager. Install Python from https://www.python.org/downloads/')
@@ -201,10 +182,10 @@ function detectPkgManager() {
 // ── Setup ──
 
 async function setupProject() {
-  info('\n[setup] Installing frontend dependencies (npm install) ...')
+  info('\n[5/5] Installing frontend dependencies (npm install) ...')
   await run('npm', ['install'], { cwd: DIR })
 
-  info('\n[setup] Setting up Python backend ...')
+  info('\n[5/5] Setting up Python backend ...')
   const pyCmd = runCapture('python3', ['--version']) ? 'python3' : 'python'
   const venvDir = path.join(DIR, 'backend', '.venv')
   if (!fs.existsSync(venvDir)) {
@@ -216,7 +197,7 @@ async function setupProject() {
     : path.join(venvDir, 'bin', 'pip')
   await run(`"${pip}"`, ['install', '-r', path.join(DIR, 'backend', 'requirements.txt')])
 
-  info('\n[setup] Building the app ...')
+  info('\n[5/5] Building the app ...')
   await run('npm', ['run', 'build'], { cwd: DIR })
 
   ok('\n=================================')
@@ -248,18 +229,17 @@ async function main() {
   const py = await checkPython()
   if (py.ok) await checkVenv(py.cmd)
 
-  // Install missing deps
-  if (!nodeOk || !py.ok) {
+  // Install missing deps (skip Node.js if running as pkg — it's bundled)
+  const needNode = !nodeOk && !IS_PKG
+  const needPy = !py.ok
+
+  if (needNode || needPy) {
     warn('\nSome dependencies are missing.')
     const proceed = await ask('Attempt to install missing dependencies automatically? [Y/n] ')
     if (proceed.toLowerCase() !== 'n') {
-      if (!nodeOk) {
-        if (PLATFORM === 'win32') await installNodeWindows()
-        else await installNodeLinux()
-      }
-      if (!py.ok) {
+      if (needPy) {
         if (PLATFORM === 'win32') await installPythonWindows()
-        else await installPythonLinux(py.cmd)
+        else await installPythonLinux()
       }
     } else {
       fail('Please install missing dependencies manually and re-run setup.')
@@ -274,5 +254,9 @@ async function main() {
 
 main().catch((err) => {
   fail(`\nSetup failed: ${err.message}`)
+  if (IS_PKG) {
+    fail('\nIf the issue is with Python installation, try installing Python 3.12 manually')
+    fail('from https://www.python.org/downloads/ and then re-run this setup.')
+  }
   process.exit(1)
 })
