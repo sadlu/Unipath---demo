@@ -1,33 +1,50 @@
 # UniPath — Installation Guide
 
-## Prerequisites
-
-| Dependency | Version | Check command |
-|---|---|---|
-| Node.js | >= 18 | `node -v` |
-| npm | >= 9 | `npm -v` |
-| Python | >= 3.10 | `python3 --version` |
-
----
-
-## 1. Clone & enter
-
-```bash
-git clone https://github.com/sadlu/Unipath---demo.git
-cd Unipath---demo
-```
-
-## 2. Install frontend dependencies
-
-```bash
-npm install
-```
-
-## 3. Set up Python backend
+## Quick start (recommended)
 
 ### Linux / macOS
 
 ```bash
+git clone https://github.com/sadlu/Unipath---demo.git
+cd Unipath---demo
+chmod +x setup.sh
+./setup.sh
+```
+
+The script checks for Node.js 18+, npm, and Python 3.10+. If anything is
+missing it asks before installing, then sets up everything automatically.
+
+### Windows
+
+Double-click `setup.bat` or run in Command Prompt:
+
+```cmd
+git clone https://github.com/sadlu/Unipath---demo.git
+cd Unipath---demo
+setup.bat
+```
+
+---
+
+## Manual setup
+
+| Dependency | Minimum version |
+|---|---|
+| Node.js | 18 |
+| npm | 9 |
+| Python | 3.10 |
+
+### Frontend
+
+```
+npm install
+npm run build
+```
+
+### Backend
+
+**Linux / macOS**
+```
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
@@ -35,9 +52,8 @@ pip install -r requirements.txt
 cd ..
 ```
 
-### Windows (PowerShell)
-
-```powershell
+**Windows**
+```
 cd backend
 python -m venv .venv
 .venv\Scripts\activate
@@ -45,35 +61,25 @@ pip install -r requirements.txt
 cd ..
 ```
 
-## 4. Build the Electron app
+### Run
 
-```bash
-npm run build
 ```
-
-## 5. Run
-
-```bash
 npm run dev
 ```
-
-The app window will open. The backend starts automatically on `localhost:8000`.
 
 ---
 
 ## Email verification (optional)
 
-To enable real email verification you need SMTP credentials.
-Copy the example file and fill in your details:
+To enable real email verification, copy the example config and fill in your
+SMTP credentials:
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` with your SMTP credentials (Gmail App Password recommended).
-
-Without this, the People & Chat features work, but email verification will show
-"SMTP not configured" and users won't be able to verify their email.
+Edit `backend/.env` with your SMTP details (Gmail App Password recommended).
+Without this, the app runs fine but email verification will be unavailable.
 
 ---
 
@@ -97,6 +103,8 @@ Unipath---demo/
 │   ├── components/       # Shared components
 │   ├── store/            # Zustand state
 │   └── services/         # API client
+├── setup.sh              # Linux/macOS automated setup
+├── setup.bat             # Windows automated setup
 ├── package.json
 ├── INSTALL.md
 └── README.md
@@ -106,7 +114,6 @@ Unipath---demo/
 
 ## Common issues
 
-- **"python3 not found" on Windows** — use `python` instead of `python3`
-- **"Cannot find module" errors** — run `npm install` and `npm run build`
-- **Port 8000 already in use** — kill the existing process or change the port in `backend/config.py`
-- **Backend not starting** — make sure the Python venv is activated and deps are installed
+- **"python3 not found" on Windows** — use `python` instead
+- **Port 8000 in use** — kill the existing process or change the port in `backend/config.py`
+- **Backend not starting** — make sure the venv exists and deps are installed
