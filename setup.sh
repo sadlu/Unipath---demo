@@ -195,14 +195,14 @@ setup_project() {
   echo ""
   ok "══════════════════════════════════════════════"
   ok "  UniPath setup complete!"
-  ok "  Run it with:  npm run dev"
+  ok "  Run it with:  npm start"
   ok "══════════════════════════════════════════════"
 
   echo ""
   read -rp "Launch UniPath now? [Y/n] " LAUNCH
   LAUNCH=${LAUNCH:-Y}
   if [[ "$LAUNCH" =~ ^[Yy]?$ ]]; then
-    npm run dev
+    npm start
   fi
 }
 

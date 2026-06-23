@@ -17,7 +17,7 @@ Built with **Electron** + **React** + **Python FastAPI**.
 See [INSTALL.md](INSTALL.md) for full setup instructions.
 
 ```bash
-npm install && cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && cd .. && npm run build && npm run dev
+npm install && cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && cd .. && npm run build && npm start
 ```
 
 ## Tech stack

@@ -35,7 +35,7 @@ source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cd ..
 npm run build
-npm run dev
+npm start
 ```
 
 ---

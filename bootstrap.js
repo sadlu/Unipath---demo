@@ -202,12 +202,12 @@ async function setupProject() {
 
   ok('\n=================================')
   ok('  UniPath setup complete!')
-  ok('  Run it with:  npm run dev')
+  ok('  Run it with:  npm start')
   ok('=================================')
 
   const launch = await ask('\nLaunch UniPath now? [Y/n] ')
   if (launch.toLowerCase() !== 'n') {
-    await run('npm', ['run', 'dev'], { cwd: DIR })
+    await run('npm', ['start'], { cwd: DIR })
   }
 }
 

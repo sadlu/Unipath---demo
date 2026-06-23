@@ -136,13 +136,13 @@ if %errorlevel% neq 0 (
 echo.
 echo ================================
 echo  UniPath setup complete!
-echo  Run it with:  npm run dev
+echo  Run it with:  npm start
 echo ================================
 
 set /p LAUNCH="Launch UniPath now? [Y/n] "
 if /i not "!LAUNCH!"=="n" (
     if /i not "!LAUNCH!"=="N" (
-        call npm run dev
+        call npm start
     )
 )
 goto :eof
