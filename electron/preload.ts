@@ -5,5 +5,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximize: () => ipcRenderer.send('window:maximize'),
   close: () => ipcRenderer.send('window:close'),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
-  oauthSignIn: (url: string) => ipcRenderer.invoke('oauth:sign-in', url),
 })

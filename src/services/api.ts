@@ -1,0 +1,202 @@
+import type { PeopleUser, Conversation, ChatMessage } from '../types'
+
+const API_BASE = 'http://localhost:8000'
+
+export interface BackendSearchResult {
+  title: string
+  url: string
+  snippet: string
+  source_site: string
+}
+
+export interface BackendSearchResponse {
+  query: string
+  answer: string | null
+  results: BackendSearchResult[]
+  error: string | null
+}
+
+export async function searchOpportunities(query: string, maxResults = 8): Promise<BackendSearchResponse> {
+  const params = new URLSearchParams({ q: query, max_results: String(maxResults) })
+  const res = await fetch(`${API_BASE}/api/search?${params}`, {
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (!res.ok) throw new Error(`Search API error: ${res.status}`)
+  return res.json()
+}
+
+export async function chatQuery(query: string, maxResults = 8): Promise<BackendSearchResponse> {
+  const res = await fetch(`${API_BASE}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, max_results: maxResults }),
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (!res.ok) throw new Error(`Chat API error: ${res.status}`)
+  return res.json()
+}
+
+export interface LocalIndexStatus {
+  exists: boolean
+  bytes: number
+  sources: number
+  scraped_at: string | null
+}
+
+export async function getLocalIndexStatus(): Promise<LocalIndexStatus> {
+  const res = await fetch(`${API_BASE}/api/local-index/status`, {
+    signal: AbortSignal.timeout(5_000),
+  })
+  if (!res.ok) throw new Error(`Local index status error: ${res.status}`)
+  return res.json()
+}
+
+export async function askLocalIndex(question: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/local-index/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (!res.ok) throw new Error(`Local index ask error: ${res.status}`)
+  const data = await res.json()
+  return data.answer as string
+}
+
+export interface DiscoveredOpportunity {
+  id: number
+  title: string
+  description: string
+  tags: string[]
+  organization: string
+  location: string
+  coordinates: { lat: number; lng: number }
+  startDate: string
+  applyUrl: string
+  matchPercentage: number
+  imageIcon: string
+}
+
+export interface DiscoverResponse {
+  opportunities: DiscoveredOpportunity[]
+  error: string | null
+}
+
+export async function discoverOpportunities(subjects: string[], limit = 20): Promise<DiscoverResponse> {
+  const params = new URLSearchParams({ subjects: subjects.join(','), limit: String(limit) })
+  const res = await fetch(`${API_BASE}/api/discover?${params}`, {
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (!res.ok) throw new Error(`Discover API error: ${res.status}`)
+  return res.json()
+}
+
+export async function triggerLocalIndexScrape(): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/local-index/scrape`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(120_000),
+  })
+  if (!res.ok) throw new Error(`Local index scrape error: ${res.status}`)
+  const data = await res.json()
+  return data.message as string
+}
+
+/* ── People & Chat API ── */
+
+export async function initPeopleUser(uid: string, displayName: string, email = ''): Promise<void> {
+  await fetch(`${API_BASE}/api/people/init`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid, display_name: displayName, email }),
+  })
+}
+
+export async function registerEmail(uid: string, email: string, displayName: string): Promise<{ ok: boolean; code?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/api/people/register-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid, email, display_name: displayName }),
+  })
+  return res.json()
+}
+
+export async function verifyEmail(email: string, code: string, uid: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API_BASE}/api/people/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, uid }),
+  })
+  return res.json()
+}
+
+export async function searchPeople(query: string, excludeUid = ''): Promise<PeopleUser[]> {
+  const params = new URLSearchParams({ q: query, exclude_uid: excludeUid })
+  const res = await fetch(`${API_BASE}/api/people/search?${params}`)
+  const data = await res.json()
+  return data.users || []
+}
+
+export async function getProfile(uid: string): Promise<PeopleUser | null> {
+  const res = await fetch(`${API_BASE}/api/people/profile/${uid}`)
+  const data = await res.json()
+  return data.user || null
+}
+
+export async function sendMessage(fromUid: string, toUid: string, content: string): Promise<{ ok: boolean; message?: ChatMessage; error?: string }> {
+  const res = await fetch(`${API_BASE}/api/chat/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from_uid: fromUid, to_uid: toUid, content }),
+  })
+  return res.json()
+}
+
+export async function getConversations(uid: string): Promise<Conversation[]> {
+  const res = await fetch(`${API_BASE}/api/chat/conversations?uid=${uid}`)
+  const data = await res.json()
+  return data.conversations || []
+}
+
+export async function getMessages(uidA: string, uidB: string): Promise<ChatMessage[]> {
+  const res = await fetch(`${API_BASE}/api/chat/messages?uid_a=${uidA}&uid_b=${uidB}`)
+  const data = await res.json()
+  return data.messages || []
+}
+
+/* ── Follow API ── */
+
+export async function followUser(followerUid: string, followingUid: string): Promise<{ ok: boolean; following?: boolean; error?: string }> {
+  const res = await fetch(`${API_BASE}/api/people/follow`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ follower_uid: followerUid, following_uid: followingUid }),
+  })
+  return res.json()
+}
+
+export async function unfollowUser(followerUid: string, followingUid: string): Promise<{ ok: boolean; following?: boolean; error?: string }> {
+  const res = await fetch(`${API_BASE}/api/people/unfollow`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ follower_uid: followerUid, following_uid: followingUid }),
+  })
+  return res.json()
+}
+
+export async function getFollowing(uid: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/people/following/${uid}`)
+  const data = await res.json()
+  return data.uids || []
+}
+
+export async function getFollowers(uid: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/people/followers/${uid}`)
+  const data = await res.json()
+  return data.uids || []
+}
+
+export async function checkIsFollowing(followerUid: string, followingUid: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/api/people/is-following?follower_uid=${followerUid}&following_uid=${followingUid}`)
+  const data = await res.json()
+  return data.following || false
+}

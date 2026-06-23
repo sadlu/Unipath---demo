@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react'
-import { X, Heart, MapPin, Calendar, Briefcase, Link as LinkIcon, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { X, Heart, MapPin, Calendar, Briefcase, Link as LinkIcon, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { useStore } from '../store/useStore'
-import { OPPORTUNITIES } from '../data'
+import { discoverOpportunities } from '../services/api'
+import type { DiscoveredOpportunity } from '../services/api'
 
 function getTimeRemaining(startDate: string): string {
+  if (!startDate) return 'Ongoing'
   const now = new Date()
   const start = new Date(startDate)
   const diffMs = start.getTime() - now.getTime()
@@ -25,6 +27,7 @@ function getTimeRemaining(startDate: string): string {
 }
 
 function openExternal(url: string) {
+  if (!url) return
   if (window.electronAPI?.openExternal) {
     window.electronAPI.openExternal(url)
   } else {
@@ -34,17 +37,82 @@ function openExternal(url: string) {
 
 const MAX_DESC_LENGTH = 120
 
+const SUBJECT_ICONS: Record<string, string> = {
+  science: '\uD83D\uDD2C',
+  technology: '\uD83D\uDCBB',
+  engineering: '\u2699\uFE0F',
+  mathematics: '\uD83D\uDCCA',
+  medicine: '\uD83C\uDFE5',
+  arts: '\uD83C\uDFA8',
+  business: '\uD83D\uDCCA',
+  law: '\u2696\uFE0F',
+  education: '\uD83D\uDCDA',
+  agriculture: '\uD83C\uDF31',
+  default: '\uD83C\uDF0D',
+}
+
+function getIcon(subjects: string[]): string {
+  for (const s of subjects) {
+    const icon = SUBJECT_ICONS[s.toLowerCase()]
+    if (icon) return icon
+  }
+  return SUBJECT_ICONS.default
+}
+
 export default function DiscoverView() {
   const currentCardIndex = useStore((s) => s.currentCardIndex)
   const advanceCard = useStore((s) => s.advanceCard)
   const addXP = useStore((s) => s.addXP)
   const userData = useStore((s) => s.userData)
   const [expanded, setExpanded] = useState(false)
+  const [cards, setCards] = useState<DiscoveredOpportunity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const retryCountRef = useRef(0)
 
-  const totalCards = OPPORTUNITIES.length
-  const activeItem = OPPORTUNITIES[currentCardIndex]
-  const timeRemaining = useMemo(() => getTimeRemaining(activeItem.startDate), [activeItem.startDate])
-  const descLong = activeItem.description.length > MAX_DESC_LENGTH
+  const subjects = userData.subjects?.length ? userData.subjects : ['opportunity']
+
+  const fetchCards = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await discoverOpportunities(subjects, 20)
+      retryCountRef.current = 0
+      if (data.error) {
+        setError(data.error)
+        setCards([])
+      } else if (data.opportunities.length === 0) {
+        setError('No opportunities found. Try adding more subjects.')
+        setCards([])
+      } else {
+        setCards(data.opportunities)
+      }
+    } catch (e) {
+      if (retryCountRef.current < 3) {
+        retryCountRef.current++
+        setTimeout(fetchCards, 2000 * retryCountRef.current)
+        return
+      }
+      setError(e instanceof Error ? e.message : 'Failed to connect to backend')
+      setCards([])
+    } finally {
+      setLoading(false)
+    }
+  }, [subjects])
+
+  useEffect(() => {
+    retryCountRef.current = 0
+    fetchCards()
+  }, [fetchCards])
+
+  const totalCards = cards.length
+  const activeItem = cards[currentCardIndex]
+  const timeRemaining = useMemo(
+    () => (activeItem ? getTimeRemaining(activeItem.startDate) : ''),
+    [activeItem?.startDate]
+  )
+  const descLong = activeItem ? activeItem.description.length > MAX_DESC_LENGTH : false
+  const icon = getIcon(subjects)
 
   const handleSwipe = (dir: 'left' | 'right') => {
     if (dir === 'right') {
@@ -53,11 +121,33 @@ export default function DiscoverView() {
         icon: '\uD83D\uDD25',
         duration: 2000,
       })
-    } else {
-      console.log('[Skip] Advanced to next card')
     }
     setExpanded(false)
     advanceCard(totalCards)
+  }
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-xl mx-auto px-4 flex flex-col items-center justify-center gap-4 mt-20">
+        <RefreshCw className="w-8 h-8 text-[#7C5CFC] animate-spin" />
+        <p className="text-slate-400 text-sm">Searching for opportunities...</p>
+      </div>
+    )
+  }
+
+  if (error || !activeItem) {
+    return (
+      <div className="w-full max-w-xl mx-auto px-4 flex flex-col items-center justify-center gap-4 mt-20">
+        <p className="text-slate-400 text-sm text-center">{error || 'No opportunities found'}</p>
+        <button
+          onClick={fetchCards}
+          className="flex items-center gap-2 px-4 py-2 bg-[#7C5CFC] hover:bg-[#8D6CFF] rounded-xl text-white text-sm font-bold transition-all"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Try Again
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -108,7 +198,7 @@ export default function DiscoverView() {
 
             <div className="flex items-center justify-between mb-4">
               <span className="inline-block px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-md">
-                {activeItem.imageIcon} {activeItem.tags[0]}
+                {icon} {activeItem.tags[0]}
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">
                 <Calendar className="w-3 h-3" />
@@ -161,13 +251,15 @@ export default function DiscoverView() {
                 <MapPin className="w-3.5 h-3.5" />
                 <span>View on Map</span>
               </button>
-              <button
-                onClick={() => openExternal(activeItem.applyUrl)}
-                className="flex items-center gap-1.5 bg-[#0D0B18] border border-[#2D2A3E]/50 px-3 py-1.5 rounded-xl text-xs text-sky-400 hover:bg-sky-500/10 hover:border-sky-500/30 transition-colors"
-              >
-                <LinkIcon className="w-3.5 h-3.5" />
-                <span className="truncate max-w-[100px]">Apply link</span>
-              </button>
+              {activeItem.applyUrl && (
+                <button
+                  onClick={() => openExternal(activeItem.applyUrl)}
+                  className="flex items-center gap-1.5 bg-[#0D0B18] border border-[#2D2A3E]/50 px-3 py-1.5 rounded-xl text-xs text-sky-400 hover:bg-sky-500/10 hover:border-sky-500/30 transition-colors"
+                >
+                  <LinkIcon className="w-3.5 h-3.5" />
+                  <span className="truncate max-w-[100px]">Source link</span>
+                </button>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-1.5 mb-5">

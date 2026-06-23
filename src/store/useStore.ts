@@ -1,15 +1,21 @@
 import { create } from 'zustand'
-import type { UserData } from '../types'
-import { supabase, saveProfile, getProfile, getProfileFollowing, clearProfileData } from '../supabaseClient'
+import type { UserData, UserSettings, AppPreferences, ThemeMode } from '../types'
+import * as localAuth from '../localAuth'
 
-const STORAGE_KEY = 'unipath_store'
+const GUEST_STORAGE_KEY = 'unipath_guest_data'
+const PREFS_STORAGE_KEY = 'unipath_preferences'
 
-function calcLevel(xp: number): number {
-  if (xp >= 1000) return 5
-  if (xp >= 600) return 4
-  if (xp >= 300) return 3
-  if (xp >= 100) return 2
-  return 1
+const DEFAULT_SETTINGS: UserSettings = {
+  notifications: true,
+  pushNotifications: true,
+  emailAlerts: false,
+  inAppSounds: true,
+  soundVolume: 50,
+  shareAnalytics: true,
+  onlineStatus: true,
+  autoSave: true,
+  desktopNotifications: true,
+  reduceMotion: false,
 }
 
 const GUEST_USER: UserData = {
@@ -21,240 +27,258 @@ const GUEST_USER: UserData = {
   xp: 0,
   streakDays: 0,
   sliderValue: 50,
-  settings: {
-    notifications: true,
-    privacy: false,
-    general1: true,
-    general2: true,
-    general3: true,
-  },
+  settings: { ...DEFAULT_SETTINGS },
   achievements: [],
-  following: [],
+  subjects: [],
 }
 
-interface GoogleUser {
-  displayName: string
-  email: string
-  photoURL: string
-  uid: string
+function calcLevel(xp: number): number {
+  if (xp >= 1000) return 5
+  if (xp >= 600) return 4
+  if (xp >= 300) return 3
+  if (xp >= 100) return 2
+  return 1
 }
 
-interface PersistedState {
-  authMode: 'guest' | 'google'
-  googleUser: GoogleUser | null
-  userData: UserData
-  currentCardIndex: number
-}
-
-function loadState(): PersistedState {
+function loadGuestData(): UserData | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(GUEST_STORAGE_KEY)
     if (raw) {
-      const data = JSON.parse(raw) as PersistedState
-      if (data && data.userData && typeof data.userData.xp === 'number') {
+      const data = JSON.parse(raw)
+      if (data && typeof data.xp === 'number') {
+        if (data.settings && typeof data.settings.general1 === 'boolean') {
+          data.settings.autoSave = data.settings.general2 ?? true
+          data.settings.desktopNotifications = data.settings.general3 ?? true
+          data.settings.pushNotifications = data.settings.pushNotifications ?? true
+          data.settings.emailAlerts = data.settings.emailAlerts ?? false
+          data.settings.inAppSounds = data.settings.inAppSounds ?? true
+          data.settings.soundVolume = data.settings.soundVolume ?? 50
+          data.settings.shareAnalytics = data.settings.shareAnalytics ?? true
+          data.settings.onlineStatus = data.settings.onlineStatus ?? true
+          data.settings.reduceMotion = data.settings.reduceMotion ?? false
+        }
         return data
       }
     }
   } catch {}
-  return { authMode: 'guest', googleUser: null, userData: { ...GUEST_USER }, currentCardIndex: 0 }
+  return null
 }
 
-function saveState(state: PersistedState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+function saveGuestData(data: UserData) {
+  localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(data))
 }
 
-function computeDisplayUser(
-  authMode: 'guest' | 'google',
-  googleUser: GoogleUser | null,
-  userData: UserData
-): UserData {
-  if (authMode === 'google' && googleUser) {
-    return {
-      ...userData,
-      displayName: googleUser.displayName,
-      email: googleUser.email,
-      photoURL: googleUser.photoURL,
-      uid: googleUser.uid,
+function clearGuestData() {
+  localStorage.removeItem(GUEST_STORAGE_KEY)
+}
+
+function loadPreferences(): AppPreferences {
+  try {
+    const raw = localStorage.getItem(PREFS_STORAGE_KEY)
+    if (raw) {
+      const data = JSON.parse(raw)
+      if (data && typeof data.theme === 'string') return data
     }
-  }
-  return userData
+  } catch {}
+  return { theme: 'dark', accentColor: '#7C5CFC', language: 'en' }
+}
+
+function savePreferences(prefs: AppPreferences) {
+  localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs))
 }
 
 interface AppState {
   view: string
   setView: (view: string) => void
 
-  authMode: 'guest' | 'google'
-  googleUser: GoogleUser | null
+  preferences: AppPreferences
+  setTheme: (theme: ThemeMode) => void
+  setAccentColor: (color: string) => void
+  setLanguage: (lang: string) => void
+
+  authMethod: 'guest' | 'local' | null
   userData: UserData
   currentCardIndex: number
 
   confettiActive: boolean
   achievementModal: string | null
 
+  loginLocal: (username: string, password: string) => Promise<void>
+  registerLocal: (username: string, password: string, displayName: string, subjects?: string[]) => Promise<void>
+  continueAsGuest: () => void
+  logout: () => void
+
   addXP: (amount: number) => void
-  toggleSetting: (key: keyof UserData['settings']) => void
+  toggleSetting: (key: keyof UserSettings) => void
+  setSetting: (key: keyof UserSettings, value: boolean | number) => void
   setEmail: (email: string) => void
   setSliderValue: (value: number) => void
-  setGoogleUser: (user: GoogleUser) => Promise<void>
-  switchToGuest: () => void
   advanceCard: (totalCards: number) => void
-  setFollowing: (uids: string[]) => void
   dismissConfetti: () => void
   dismissAchievement: () => void
-  resetAllProgress: () => Promise<void>
+  resetAllProgress: () => void
+}
+
+function persistData(state: { authMethod: 'guest' | 'local' | null; userData: UserData }) {
+  if (state.authMethod === 'guest') {
+    saveGuestData(state.userData)
+  } else if (state.authMethod === 'local') {
+    localAuth.saveCurrentUserData(state.userData).catch((err) =>
+      console.error('[Store] Failed to save encrypted data:', err)
+    )
+  }
 }
 
 export const useStore = create<AppState>((set, get) => {
-  const persisted = loadState()
+  const guestData = loadGuestData()
+  const initialPrefs = loadPreferences()
 
   return {
     view: 'home',
     setView: (view) => set({ view }),
 
-    authMode: persisted.authMode,
-    googleUser: persisted.googleUser,
-    userData: computeDisplayUser(persisted.authMode, persisted.googleUser, persisted.userData),
-    currentCardIndex: persisted.currentCardIndex,
+    preferences: initialPrefs,
+    setTheme: (theme) => {
+      const current = get().preferences
+      const updated = { ...current, theme }
+      savePreferences(updated)
+      set({ preferences: updated })
+      applyTheme(theme)
+    },
+    setAccentColor: (accentColor) => {
+      const current = get().preferences
+      const updated = { ...current, accentColor }
+      savePreferences(updated)
+      set({ preferences: updated })
+      document.documentElement.style.setProperty('--accent', accentColor)
+    },
+    setLanguage: (language) => {
+      const current = get().preferences
+      const updated = { ...current, language }
+      savePreferences(updated)
+      set({ preferences: updated })
+    },
+
+    authMethod: guestData ? 'guest' : null,
+    userData: guestData || { ...GUEST_USER },
+    currentCardIndex: 0,
 
     confettiActive: false,
     achievementModal: null,
 
+    loginLocal: async (username, password) => {
+      const userData = await localAuth.login(username, password)
+      set({ authMethod: 'local', userData })
+    },
+
+    registerLocal: async (username, password, displayName, subjects) => {
+      await localAuth.createAccount(username, password, displayName, subjects)
+      const userData = await localAuth.login(username, password)
+      set({ authMethod: 'local', userData })
+    },
+
+    continueAsGuest: () => {
+      const existing = loadGuestData()
+      const userData = existing || { ...GUEST_USER }
+      if (!existing) saveGuestData(userData)
+      set({ authMethod: 'guest', userData })
+    },
+
+    logout: () => {
+      localAuth.clearSession()
+      clearGuestData()
+      set({ authMethod: null, userData: { ...GUEST_USER }, currentCardIndex: 0 })
+    },
+
     addXP: (amount) => {
-      const { authMode, googleUser, userData } = get()
-      const internal = loadState()
-      const baseUser = authMode === 'google' && googleUser ? internal.userData : userData
-      const newXP = baseUser.xp + amount
+      const { authMethod, userData } = get()
+      const newXP = userData.xp + amount
       const newLevel = calcLevel(newXP)
-      const updated = { ...baseUser, xp: newXP, level: newLevel }
-      const display = computeDisplayUser(authMode, googleUser, updated)
+      const updated = { ...userData, xp: newXP, level: newLevel }
+      set({ userData: updated })
+      persistData({ authMethod, userData: updated })
 
-      saveState({ ...internal, userData: updated })
-      set({ userData: display })
-
-      const hasFirstDiscovery = updated.achievements.includes('First Discovery')
+      const hasFirstDiscovery = userData.achievements.includes('First Discovery')
       if (newXP >= 200 && !hasFirstDiscovery) {
         const withAchievement = {
           ...updated,
           achievements: [...updated.achievements, 'First Discovery'],
         }
-        const displayWith = computeDisplayUser(authMode, googleUser, withAchievement)
-        saveState({ ...internal, userData: withAchievement })
-        set({ userData: displayWith, confettiActive: true, achievementModal: 'First Discovery' })
+        set({ userData: withAchievement, confettiActive: true, achievementModal: 'First Discovery' })
+        persistData({ authMethod, userData: withAchievement })
       }
     },
 
     toggleSetting: (key) => {
-      const { authMode, googleUser, userData } = get()
-      const internal = loadState()
-      const baseUser = authMode === 'google' && googleUser ? internal.userData : userData
-      const newSettings = {
-        ...baseUser.settings,
-        [key]: !baseUser.settings[key],
+      const { authMethod, userData } = get()
+      const currentVal = userData.settings[key]
+      if (typeof currentVal !== 'boolean') return
+      const newSettings = { ...userData.settings, [key]: !currentVal }
+      if (key === 'notifications' && !newSettings.notifications) {
+        newSettings.pushNotifications = false
+        newSettings.emailAlerts = false
+        newSettings.inAppSounds = false
       }
-      const updated = { ...baseUser, settings: newSettings }
-      const display = computeDisplayUser(authMode, googleUser, updated)
-      saveState({ ...internal, userData: updated })
-      set({ userData: display })
+      const updated = { ...userData, settings: newSettings }
+      set({ userData: updated })
+      persistData({ authMethod, userData: updated })
+    },
+
+    setSetting: (key, value) => {
+      const { authMethod, userData } = get()
+      const newSettings = { ...userData.settings, [key]: value }
+      const updated = { ...userData, settings: newSettings }
+      set({ userData: updated })
+      persistData({ authMethod, userData: updated })
     },
 
     setEmail: (email) => {
-      const { authMode, googleUser, userData } = get()
-      const internal = loadState()
-      const baseUser = authMode === 'google' && googleUser ? internal.userData : userData
-      const updated = { ...baseUser, email }
-      const display = computeDisplayUser(authMode, googleUser, updated)
-      saveState({ ...internal, userData: updated })
-      set({ userData: display })
+      const { authMethod, userData } = get()
+      const updated = { ...userData, email }
+      set({ userData: updated })
+      persistData({ authMethod, userData: updated })
     },
 
     setSliderValue: (value) => {
-      const { authMode, googleUser, userData } = get()
-      const internal = loadState()
-      const baseUser = authMode === 'google' && googleUser ? internal.userData : userData
-      const updated = { ...baseUser, sliderValue: value }
-      const display = computeDisplayUser(authMode, googleUser, updated)
-      saveState({ ...internal, userData: updated })
-      set({ userData: display })
-    },
-
-    setGoogleUser: async (googleUser) => {
-      const internal = loadState()
-
-      const existing = await getProfile(googleUser.uid)
-      let following: string[] = []
-
-      if (existing) {
-        following = existing.following || []
-      } else {
-        await saveProfile({
-          uid: googleUser.uid,
-          display_name: googleUser.displayName,
-          email: googleUser.email,
-          photo_url: googleUser.photoURL,
-          xp: internal.userData.xp,
-          level: internal.userData.level,
-          streak_days: internal.userData.streakDays,
-          slider_value: internal.userData.sliderValue,
-          settings: internal.userData.settings,
-          achievements: internal.userData.achievements,
-          following: [],
-        })
-      }
-
-      const mergedUserData = { ...internal.userData, following }
-      saveState({ ...internal, authMode: 'google', googleUser, userData: mergedUserData })
-      set({
-        authMode: 'google',
-        googleUser,
-        userData: computeDisplayUser('google', googleUser, mergedUserData),
-      })
-    },
-
-    switchToGuest: () => {
-      const internal = loadState()
-      const display = computeDisplayUser('guest', null, internal.userData)
-      saveState({ ...internal, authMode: 'guest', googleUser: null })
-      set({ authMode: 'guest', googleUser: null, userData: display })
-      supabase.auth.signOut()
+      const { authMethod, userData } = get()
+      const updated = { ...userData, sliderValue: value }
+      set({ userData: updated })
+      persistData({ authMethod, userData: updated })
     },
 
     advanceCard: (totalCards) => {
       const { currentCardIndex } = get()
       const next = (currentCardIndex + 1) % totalCards
-      const internal = loadState()
-      saveState({ ...internal, currentCardIndex: next })
       set({ currentCardIndex: next })
-    },
-
-    setFollowing: (uids) => {
-      const { authMode, googleUser, userData } = get()
-      const internal = loadState()
-      const baseUser = authMode === 'google' && googleUser ? internal.userData : userData
-      const updated = { ...baseUser, following: uids }
-      const display = computeDisplayUser(authMode, googleUser, updated)
-      saveState({ ...internal, userData: updated })
-      set({ userData: display })
     },
 
     dismissConfetti: () => set({ confettiActive: false }),
     dismissAchievement: () => set({ achievementModal: null }),
 
-    resetAllProgress: async () => {
-      const { authMode, googleUser } = get()
-
-      localStorage.removeItem(STORAGE_KEY)
-
-      if (authMode === 'google' && googleUser) {
-        await clearProfileData(googleUser.uid)
+    resetAllProgress: () => {
+      const { authMethod } = get()
+      clearGuestData()
+      if (authMethod === 'local') {
+        const username = localAuth.getSessionUsername()
+        if (username) localStorage.removeItem('unipath_user_' + username)
       }
-
       set({
-        authMode: 'guest',
-        googleUser: null,
+        authMethod: null,
         userData: { ...GUEST_USER },
         currentCardIndex: 0,
       })
     },
   }
 })
+
+function applyTheme(theme: ThemeMode) {
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  document.documentElement.classList.toggle('dark', isDark)
+  if (isDark) {
+    document.documentElement.style.setProperty('--bg-primary', '#13111C')
+    document.documentElement.style.setProperty('--bg-secondary', '#1C192C')
+  } else {
+    document.documentElement.style.setProperty('--bg-primary', '#FFFFFF')
+    document.documentElement.style.setProperty('--bg-secondary', '#F5F5F7')
+  }
+}

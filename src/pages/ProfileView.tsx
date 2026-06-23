@@ -1,8 +1,5 @@
 import { useStore } from '../store/useStore'
-import { signInWithGoogle } from '../supabaseClient'
 import { Award, BookOpen, Trophy, ScrollText, Mail } from 'lucide-react'
-import toast from 'react-hot-toast'
-import { useState } from 'react'
 
 const ACHIEVEMENTS = [
   {
@@ -45,40 +42,18 @@ const ACHIEVEMENTS = [
 
 export default function ProfileView() {
   const userData = useStore((s) => s.userData)
-  const authMode = useStore((s) => s.authMode)
-  const [loading, setLoading] = useState(false)
 
   const xp = userData.xp
   const level = userData.level
   const achievements = userData.achievements
-  const followersCount = 3
-  const followingCount = userData.following.length
-
-  async function handleGoogleSignIn() {
-    setLoading(true)
-    const { error } = await signInWithGoogle()
-    if (error) {
-      console.error('[Profile] Login error:', error)
-      toast.error('Login failed. Please try again.')
-    }
-    setLoading(false)
-  }
 
   return (
     <div className="w-full max-w-2xl mx-auto px-5 flex flex-col gap-6 pb-8">
       <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-6 flex flex-col gap-4">
         <div className="flex items-center gap-5">
-          {userData.photoURL ? (
-            <img
-              src={userData.photoURL}
-              alt=""
-              className="w-20 h-20 rounded-full object-cover border-2 border-[#7C5CFC]/30 shrink-0"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-2xl font-black text-white shrink-0">
-              {userData.displayName[0]}
-            </div>
-          )}
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-2xl font-black text-white shrink-0">
+            {userData.displayName[0]}
+          </div>
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             <h2 className="text-xl font-extrabold text-white truncate">{userData.displayName}</h2>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -88,36 +63,12 @@ export default function ProfileView() {
             <span className="text-sm font-semibold text-[#7C5CFC]">Lv {level} &bull; {xp} XP</span>
             <div className="flex items-center gap-4 mt-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400">{followingCount}</span>
-                <span className="text-[11px] text-slate-500">Following</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400">{followersCount}</span>
-                <span className="text-[11px] text-slate-500">Followers</span>
-              </div>
-              <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-400">{achievements.length * 10 + 139}</span>
                 <span className="text-[11px] text-slate-500">Metrics</span>
               </div>
             </div>
           </div>
         </div>
-        {authMode === 'guest' && (
-          <button
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            className="w-full py-2.5 bg-[#0D0B18] border border-[#2D2A3E] hover:border-[#7C5CFC]/30 rounded-xl text-sm font-semibold text-slate-300 hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {loading ? (
-              <span className="animate-pulse">Connecting...</span>
-            ) : (
-              <>
-                <span className="text-base">G</span>
-                <span>Switch to Google Account</span>
-              </>
-            )}
-          </button>
-        )}
       </div>
 
       <div className="flex flex-col gap-3">

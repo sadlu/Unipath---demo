@@ -1,12 +1,12 @@
 import React from 'react'
 import { useStore } from '../store/useStore'
 import { motion } from 'framer-motion'
-import toast from 'react-hot-toast'
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: '\u{1F3E0}' },
   { id: 'discover', label: 'Discover', icon: '\u2728' },
-  { id: 'explore', label: 'Explore', icon: '\uD83D\uDD0D' },
+  { id: 'people', label: 'People', icon: '\u{1F465}' },
+  { id: 'chat', label: 'Chat', icon: '\u{1F4AC}' },
   { id: 'profile', label: 'Profile', icon: '\u{1F464}' },
   { id: 'settings', label: 'Settings', icon: '\u2699\uFE0F' },
 ]
@@ -14,24 +14,16 @@ const NAV_ITEMS = [
 export default function BottomDock() {
   const view = useStore((s) => s.view)
   const setView = useStore((s) => s.setView)
-  const authMode = useStore((s) => s.authMode)
-
-  function handleNav(id: string) {
-    if (id === 'explore' && authMode === 'guest') {
-      toast('Create a Google Account to explore users!', { icon: '\u2139\uFE0F', duration: 3000 })
-    }
-    setView(id)
-  }
 
   return (
     <div className="w-full flex justify-center pb-5 px-4 z-20 pointer-events-none">
       <div className="glass border border-white/10 rounded-full py-2 px-3 shadow-2xl flex items-center gap-1 pointer-events-auto">
         {NAV_ITEMS.map((item) => {
-          const active = view === item.id
+          const active = view === item.id || (item.id === 'chat' && view === 'chat')
           return (
             <button
               key={item.id}
-              onClick={() => handleNav(item.id)}
+              onClick={() => setView(item.id)}
               className="relative flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200"
             >
               {active && (

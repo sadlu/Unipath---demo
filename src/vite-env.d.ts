@@ -5,7 +5,6 @@ interface ElectronAPI {
   maximize: () => void
   close: () => void
   openExternal: (url: string) => Promise<void>
-  oauthSignIn: (url: string) => Promise<void>
 }
 
 interface Window {

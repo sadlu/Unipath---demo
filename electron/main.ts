@@ -1,6 +1,9 @@
+import fs from 'fs'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import path from 'path'
+import os from 'os'
 import { fileURLToPath } from 'url'
+import { spawn, spawnSync, type ChildProcess } from 'child_process'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -9,8 +12,98 @@ process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
 
 let win: BrowserWindow | null = null
+let backendProcess: ChildProcess | null = null
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+
+const PROJECT_ROOT = path.resolve(__dirname, '..')
+const IS_WIN = os.platform() === 'win32'
+
+
+
+function findPython(): string {
+  const candidates = IS_WIN ? ['python', 'python3'] : ['python3', 'python']
+  for (const cmd of candidates) {
+    try {
+      const result = spawnSync(cmd, ['--version'], { stdio: 'pipe' })
+      if (result.status === 0) return cmd
+    } catch {}
+  }
+  return IS_WIN ? 'python' : 'python3'
+}
+
+function findVenvPython(): string | null {
+  const venvPaths = IS_WIN
+    ? [
+        path.join(PROJECT_ROOT, 'backend', '.venv', 'Scripts', 'python.exe'),
+        path.join(PROJECT_ROOT, '.venv', 'Scripts', 'python.exe'),
+      ]
+    : [
+        path.join(PROJECT_ROOT, 'backend', '.venv', 'bin', 'python3'),
+        path.join(PROJECT_ROOT, 'backend', '.venv', 'bin', 'python'),
+        path.join(PROJECT_ROOT, '.venv', 'bin', 'python3'),
+        path.join(PROJECT_ROOT, '.venv', 'bin', 'python'),
+      ]
+  for (const p of venvPaths) {
+    try {
+      fs.accessSync(p)
+      return p
+    } catch {}
+  }
+  return null
+}
+
+function startBackend(): Promise<void> {
+  return new Promise((resolve) => {
+    const python = findVenvPython() || findPython()
+    const args = ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8000']
+
+    backendProcess = spawn(python, args, {
+      cwd: PROJECT_ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    let started = false
+
+    backendProcess.stdout?.on('data', (data: Buffer) => {
+      const text = data.toString()
+      if (!started && text.includes('Uvicorn running on')) {
+        started = true
+        resolve()
+      }
+    })
+
+    backendProcess.stderr?.on('data', (data: Buffer) => {
+      const text = data.toString()
+      if (!started && text.includes('Uvicorn running on')) {
+        started = true
+        resolve()
+      }
+    })
+
+    backendProcess.on('error', () => {
+      if (!started) {
+        started = true
+        resolve()
+      }
+    })
+
+    backendProcess.on('exit', () => {
+      backendProcess = null
+      if (!started) {
+        started = true
+        resolve()
+      }
+    })
+
+    setTimeout(() => {
+      if (!started) {
+        started = true
+        resolve()
+      }
+    }, 8000)
+  })
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -28,14 +121,6 @@ function createWindow() {
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    const allowedAuthPopup =
-      url.startsWith('https://') &&
-      (url.includes('.supabase.co') || url.includes('accounts.google.com') || url.includes('googleusercontent.com') || url.includes('googleapis.com'))
-
-    if (allowedAuthPopup) {
-      return { action: 'allow' }
-    }
-
     shell.openExternal(url)
     return { action: 'deny' }
   })
@@ -62,72 +147,15 @@ ipcMain.handle('open-external', async (_, url: string) => {
   }
 })
 
-ipcMain.handle('oauth:sign-in', async (_, oauthUrl: string) => {
-  return new Promise<void>((resolve, reject) => {
-    const popup = new BrowserWindow({
-      width: 600,
-      height: 700,
-      parent: win!,
-      modal: true,
-      show: true,
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
-    })
-
-    let loadFailed = false
-    let loadError = ''
-
-    const popupTimeout = setTimeout(() => {
-      if (!popup.isDestroyed()) {
-        popup.close()
-      }
-      reject(new Error('Sign-in timed out. Please try again.'))
-    }, 120000)
-
-    popup.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
-      loadFailed = true
-      loadError = `Failed to load auth page (${errorCode}: ${errorDescription})`
-      console.error('[oauth] did-fail-load:', loadError)
-    })
-
-    popup.webContents.on('did-finish-load', () => {
-      loadFailed = false
-      loadError = ''
-    })
-
-    popup.loadURL(oauthUrl).catch((err) => {
-      loadFailed = true
-      loadError = `Failed to load auth page: ${err.message}`
-      console.error('[oauth] loadURL error:', loadError)
-    })
-
-    const checkUrl = (_event: Electron.Event, url: string) => {
-      if (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1') || url.startsWith('file://')) {
-        setTimeout(() => {
-          if (!popup.isDestroyed()) {
-            popup.close()
-          }
-        }, 2500)
-      }
-    }
-
-    popup.webContents.on('will-redirect', checkUrl)
-    popup.webContents.on('did-navigate', checkUrl)
-
-    popup.on('closed', () => {
-      clearTimeout(popupTimeout)
-      if (loadFailed) {
-        reject(new Error(loadError || 'Auth popup failed to load'))
-      } else {
-        resolve()
-      }
-    })
-  })
-})
-
 app.on('window-all-closed', () => {
+  if (backendProcess) {
+    if (IS_WIN) {
+      spawn('taskkill', ['/pid', String(backendProcess.pid), '/f', '/t'])
+    } else {
+      backendProcess.kill()
+    }
+    backendProcess = null
+  }
   if (process.platform !== 'darwin') {
     app.quit()
     win = null
@@ -140,4 +168,7 @@ app.on('activate', () => {
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(async () => {
+  await startBackend()
+  createWindow()
+})

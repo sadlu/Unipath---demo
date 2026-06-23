@@ -1,0 +1,150 @@
+[Notice #1]
+Source: Edusanjal News
+Category: admissions
+Title: TU Admission Open for Bachelor Programs 2082
+Date: 2026-03-15
+Content: Tribhuvan University has opened admissions for Bachelor programs across all faculties for the academic session 2082. Applications accepted until April 30.
+URL: https://edusanjal.com/news/tu-admission-2082
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #2]
+Source: Edusanjal News
+Category: admissions
+Title: Kathmandu University Announces Entrance Exam Dates for Engineering
+Date: 2026-03-10
+Content: Kathmandu University School of Engineering has announced entrance exam for BE programs on April 20, 2026. Application deadline is April 5.
+URL: https://edusanjal.com/news/ku-entrance-engineering
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #3]
+Source: Edusanjal Vacancy
+Category: jobs
+Title: Teaching Assistant Needed at St. Xavier's College, Kathmandu
+Date: 2026-06-20
+Content: St. Xavier's College invites applications for Teaching Assistant positions in Science and Mathematics departments. Masters degree required.
+URL: https://edusanjal.com/vacancy/stxaviers-ta
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #4]
+Source: Edusanjal Vacancy
+Category: jobs
+Title: Internship Program at Nepal Telecom for IT Students
+Date: 2026-06-18
+Content: Nepal Telecom offers 3-month paid internship for IT and Computer Science students. Must be enrolled in Bachelor program. Apply by July 10.
+URL: https://edusanjal.com/vacancy/nt-internship
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #5]
+Source: Educate Nepal
+Category: scholarships
+Title: Prime Minister Scholarship for Science and Technology Students 2026
+Date: 2026-05-01
+Content: The Government of Nepal announces PM Scholarship for meritorious students in Science and Technology. Covers full tuition for 4 years.
+URL: https://www.educatenepal.com/scholarship/pm-scholarship-2026
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #6]
+Source: Educate Nepal
+Category: scholarships
+Title: Pokhara University Merit-Based Scholarship Open
+Date: 2026-04-20
+Content: Pokhara University offers merit scholarships for undergraduate and graduate students. Minimum 80% in previous degree required.
+URL: https://www.educatenepal.com/scholarship/pu-merit
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #7]
+Source: TU Exam Controller
+Category: exams
+Title: TU Bachelor Level Exam Routine 2082 Published
+Date: 2026-06-01
+Content: Tribhuvan University has published the exam routine for Bachelor level (4 years) programs. Exams start from July 15. Check notice board for details.
+URL: https://exam.tu.edu.np/notice/bachelor-routine-2082
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #8]
+Source: TU Exam Controller
+Category: exams
+Title: TU Master Level Entrance Exam Results Announced
+Date: 2026-05-28
+Content: Results for TU Master level entrance examinations have been published. Candidates can check their scores online.
+URL: https://exam.tu.edu.np/result/master-entrance-2082
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #9]
+Source: TU Faculty of Management
+Category: management
+Title: FOMECCD Announces BBA and BBS Admission Schedule
+Date: 2026-03-22
+Content: Faculty of Management, TU has announced admission schedule for BBA and BBS programs. Forms available from April 1. Entrance exam on May 10.
+URL: https://www.fomecd.edu.np/admission/bba-bbs-2082
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #10]
+Source: TU Faculty of Management
+Category: management
+Title: MBA Programs at TU Faculty of Management - Application Open
+Date: 2026-03-05
+Content: Apply for MBA programs at Faculty of Management, Tribhuvan University. Evening and weekend classes available. Deadline May 30.
+URL: https://www.fomecd.edu.np/programs/mba
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #11]
+Source: Edusanjal News
+Category: admissions
+Title: Nepal Polytechnic Institute Diploma Admission 2082
+Date: 2026-02-28
+Content: Nepal Polytechnic Institute (CTEVT) opens admission for Diploma in Engineering, IT, and Agriculture for the academic year 2082.
+URL: https://edusanjal.com/news/npi-diploma-2082
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #12]
+Source: Edusanjal Vacancy
+Category: jobs
+Title: Part-Time Tutor Needed for Mathematics in Kathmandu
+Date: 2026-06-15
+Content: A learning center in Kathmandu seeks part-time mathematics tutor for grade 11-12 students. Bachelors in Mathematics or Engineering required.
+URL: https://edusanjal.com/vacancy/math-tutor-ktm
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #13]
+Source: Educate Nepal
+Category: scholarships
+Title: Asian Heritage Foundation Scholarship for Nepali Students
+Date: 2026-04-10
+Content: Asian Heritage Foundation offers scholarship for Nepali students pursuing higher education in Nepal. Preference for first-generation learners.
+URL: https://www.educatenepal.com/scholarship/ahf-nepal
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #14]
+Source: TU Exam Controller
+Category: exams
+Title: TU Bachelor Level Form Fill-Up Notice for 4th Year
+Date: 2026-05-15
+Content: TU has published the form fill-up notice for 4th-year Bachelor students. Deadline for form submission is June 10 with regular fee.
+URL: https://exam.tu.edu.np/notice/bachelor-form-4thyear
+Scraped At: 2026-06-23T00:00:00
+---
+
+[Notice #15]
+Source: TU Faculty of Management
+Category: management
+Title: FOMECCD Research Conference 2026 - Call for Papers
+Date: 2026-06-10
+Content: Faculty of Management calls for research papers for its annual conference on Entrepreneurship and Innovation in Nepal. Submit abstract by August 1.
+URL: https://www.fomecd.edu.np/conference/2026
+Scraped At: 2026-06-23T00:00:00
+---
+
