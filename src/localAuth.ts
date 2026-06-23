@@ -114,7 +114,7 @@ export async function login(username: string, password: string): Promise<UserDat
   let data: any
   try {
     const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
+      { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
       key,
       ciphertext.buffer as ArrayBuffer
     )
