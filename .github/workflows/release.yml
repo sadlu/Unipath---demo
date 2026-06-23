@@ -28,7 +28,7 @@ jobs:
         run: pip install -r backend/requirements.txt pyinstaller
 
       - name: Install Node deps
-        run: npm ci
+        run: npm install
 
       - name: Build app
         run: npm run dist:linux
@@ -58,7 +58,7 @@ jobs:
         run: pip install -r backend/requirements.txt pyinstaller
 
       - name: Install Node deps
-        run: npm ci
+        run: npm install
 
       - name: Build app
         run: npm run dist:win
@@ -88,7 +88,7 @@ jobs:
         run: pip install -r backend/requirements.txt pyinstaller
 
       - name: Install Node deps
-        run: npm ci
+        run: npm install
 
       - name: Build app
         run: npm run dist:mac

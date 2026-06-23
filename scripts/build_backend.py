@@ -44,6 +44,7 @@ def main():
             "ddgs", "requests", "bs4", "openai",
             "lxml", "httpx", "httpcore", "anyio", "sniffio", "h11",
             "starlette", "starlette.applications",
+            "tzdata",
         ]
 
         cmd = [
