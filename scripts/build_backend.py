@@ -41,10 +41,9 @@ def main():
             "uvicorn", "uvicorn.logging", "uvicorn.loops.auto",
             "uvicorn.protocols.http.auto", "uvicorn.protocols.websockets.auto",
             "fastapi", "pydantic", "dotenv",
-            "duckduckgo_search", "requests", "bs4", "openai",
+            "ddgs", "requests", "bs4", "openai",
             "lxml", "httpx", "httpcore", "anyio", "sniffio", "h11",
             "starlette", "starlette.applications",
-            "multidict", "yarl", "aiohttp",
         ]
 
         cmd = [
