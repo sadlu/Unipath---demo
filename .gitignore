@@ -19,3 +19,10 @@ backend/unipath.db
 # Local data
 unipath_store.db
 *.db
+
+# Pre-built setup executables (build via bootstrap.js)
+dist-setup/
+
+# pkg cache
+.pkg-cache/
+
