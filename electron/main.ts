@@ -16,8 +16,13 @@ let backendProcess: ChildProcess | null = null
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
-const PROJECT_ROOT = path.resolve(__dirname, '..')
+const PROJECT_ROOT = app.isPackaged ? path.join(process.resourcesPath, '..') : path.resolve(__dirname, '..')
+const BACKEND_DIR = app.isPackaged ? path.join(process.resourcesPath, 'backend') : path.join(PROJECT_ROOT, 'backend')
 const IS_WIN = os.platform() === 'win32'
+
+const BACKEND_BINARY = app.isPackaged
+  ? path.join(process.resourcesPath, 'backend-bin', IS_WIN ? 'unipath-backend.exe' : 'unipath-backend')
+  : null
 
 
 
@@ -55,15 +60,25 @@ function findVenvPython(): string | null {
 
 function startBackend(): Promise<void> {
   return new Promise((resolve) => {
-    const python = findVenvPython() || findPython()
-    const args = ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8000']
-
-    backendProcess = spawn(python, args, {
-      cwd: PROJECT_ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-
+    const dataDir = app.getPath('userData')
+    const env = { ...process.env, UNIPATH_DATA_DIR: dataDir }
     let started = false
+
+    if (app.isPackaged && BACKEND_BINARY && fs.existsSync(BACKEND_BINARY)) {
+      backendProcess = spawn(BACKEND_BINARY, [], {
+        cwd: dataDir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env,
+      })
+    } else {
+      const python = findVenvPython() || findPython()
+      const args = ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8000']
+      backendProcess = spawn(python, args, {
+        cwd: PROJECT_ROOT,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env,
+      })
+    }
 
     backendProcess.stdout?.on('data', (data: Buffer) => {
       const text = data.toString()
@@ -101,7 +116,7 @@ function startBackend(): Promise<void> {
         started = true
         resolve()
       }
-    }, 8000)
+    }, 12000)
   })
 }
 

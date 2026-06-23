@@ -416,3 +416,8 @@ def health_check():
         "openai_configured": settings.has_openai_key,
         "local_index_exists": index_status()["exists"],
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, log_level="info")

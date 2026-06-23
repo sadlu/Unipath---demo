@@ -26,3 +26,10 @@ dist-setup/
 # pkg cache
 .pkg-cache/
 
+# PyInstaller build output
+dist-backend/
+*.spec
+
+# Build artifacts
+scripts/__pycache__/
+

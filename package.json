@@ -9,7 +9,49 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "start": "electron .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:backend": "python scripts/build_backend.py",
+    "dist": "npm run build && npm run build:backend && electron-builder --publish=never",
+    "dist:linux": "npm run build && npm run build:backend && electron-builder --linux --publish=never",
+    "dist:win": "npm run build && npm run build:backend && electron-builder --win --publish=never",
+    "dist:mac": "npm run build && npm run build:backend && electron-builder --mac --publish=never"
+  },
+  "build": {
+    "appId": "com.unipath.desktop",
+    "productName": "UniPath",
+    "directories": {
+      "output": "dist-setup"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-backend",
+        "to": "backend-bin",
+        "filter": ["**/*"]
+      }
+    ],
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Education",
+      "icon": "unipath-icon.svg"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "unipath-icon.svg"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "unipath-icon.svg",
+      "category": "public.app-category.education"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "dependencies": {
     "framer-motion": "^11.0.0",

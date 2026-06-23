@@ -54,7 +54,11 @@ SOURCE_LINKS: list[dict] = [
     },
 ]
 
-SCRAPED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scraped_notices.txt")
+_data_dir = os.environ.get("UNIPATH_DATA_DIR")
+if _data_dir:
+    SCRAPED_FILE = os.path.join(_data_dir, "scraped_notices.txt")
+else:
+    SCRAPED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scraped_notices.txt")
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) UniPath-LocalIndex/1.0"
 REQUEST_TIMEOUT = 25
 CRAWL_DELAY = 2.0  # seconds between requests — be polite

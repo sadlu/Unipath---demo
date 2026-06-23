@@ -6,7 +6,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 
-DB_PATH = Path(__file__).resolve().parent / "unipath.db"
+_data_dir = os.environ.get("UNIPATH_DATA_DIR")
+if _data_dir:
+    DB_PATH = Path(_data_dir) / "unipath.db"
+else:
+    DB_PATH = Path(__file__).resolve().parent / "unipath.db"
 
 
 def get_conn() -> sqlite3.Connection:
