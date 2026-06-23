@@ -12,9 +12,6 @@ jobs:
   build-linux:
     name: Build Linux (AppImage + deb)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./unipath
 
     steps:
       - uses: actions/checkout@v4
@@ -40,14 +37,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unipath-linux
-          path: unipath/dist-setup/*
+          path: dist-setup/*
 
   build-windows:
     name: Build Windows (NSIS installer)
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: ./unipath
 
     steps:
       - uses: actions/checkout@v4
@@ -73,14 +67,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unipath-windows
-          path: unipath/dist-setup/*
+          path: dist-setup/*
 
   build-macos:
     name: Build macOS (DMG)
     runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: ./unipath
 
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +97,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unipath-macos
-          path: unipath/dist-setup/*
+          path: dist-setup/*
 
   release:
     name: Create GitHub Release
