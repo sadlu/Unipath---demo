@@ -1,0 +1,9 @@
+@echo off
+cd /d "%~dp0"
+echo [UniPath] Installing dependencies (first run only)...
+call npm install
+echo [UniPath] Building...
+call npm run build
+echo [UniPath] Launching...
+call npm start
+pause

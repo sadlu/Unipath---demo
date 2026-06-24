@@ -1,0 +1,35 @@
+node_modules/
+dist/
+dist-electron/
+*.log
+.DS_Store
+run.sh
+
+__pycache__/
+*.pyc
+
+# Backend
+backend/.env
+backend/__pycache__/
+backend/.venv/
+backend/*.pyc
+backend/scraped_notices.txt
+backend/unipath.db
+
+# Local data
+unipath_store.db
+*.db
+
+# Pre-built setup executables (build via bootstrap.js)
+dist-setup/
+
+# pkg cache
+.pkg-cache/
+
+# PyInstaller build output
+dist-backend/
+*.spec
+
+# Build artifacts
+scripts/__pycache__/
+
