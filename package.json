@@ -40,16 +40,13 @@
     ],
     "linux": {
       "target": ["AppImage", "deb"],
-      "category": "Education",
-      "icon": "unipath-icon.svg"
+      "category": "Education"
     },
     "win": {
-      "target": ["nsis"],
-      "icon": "unipath-icon.svg"
+      "target": ["nsis"]
     },
     "mac": {
       "target": ["dmg"],
-      "icon": "unipath-icon.svg",
       "category": "public.app-category.education"
     },
     "nsis": {
