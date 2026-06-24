@@ -21,6 +21,7 @@ except ImportError:
 from fastapi import FastAPI, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -56,7 +57,8 @@ app = FastAPI(
     version="1.0.0",
 )
 
-ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173,app://.").split(",")
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "dist"
+ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", f"http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173,app://.,http://localhost:8000,http://127.0.0.1:8000").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -73,6 +75,20 @@ AVATAR_DIR.mkdir(parents=True, exist_ok=True)
 CHAT_IMG_DIR.mkdir(parents=True, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="frontend_assets")
+
+    @app.get("/")
+    @app.get("/{path:path}")
+    def serve_frontend(path: str = ""):
+        if path.startswith("api/") or path.startswith("uploads/"):
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"error": "Not found"}, status_code=404)
+        file = FRONTEND_DIST / "index.html"
+        if file.exists():
+            return FileResponse(str(file))
+        return {"error": "Frontend not built. Run: npx vite build"}
 
 
 class SearchResponse(BaseModel):

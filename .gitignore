@@ -33,3 +33,15 @@ dist-backend/
 # Build artifacts
 scripts/__pycache__/
 
+# Android APK at root
+UniPath.apk
+
+# Capacitor generated (already in android/.gitignore)
+android/.gradle/
+android/build/
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
+
