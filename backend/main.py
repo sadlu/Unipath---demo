@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pipeline import run_pipeline
 from local_index import ask as local_ask, scrape_all, index_status
 from search_service import search_nepal, search_nepal_multi
+from llm_service import generate_cv_advice_with_fallback
 from config import settings
 from database import (
     init_db,
@@ -52,10 +53,13 @@ from database import (
     create_account,
     authenticate,
     create_auth_token,
+    create_auth_token_pair,
+    refresh_auth_token,
     get_uid_by_token,
     delete_auth_token,
     sync_user_data,
     hash_password,
+    update_user_password,
 )
 from email_service import send_verification_email
 
@@ -413,6 +417,75 @@ def discover_endpoint(
     return {"opportunities": [o.model_dump() for o in opportunities], "error": None}
 
 
+class CVAdviseRequest(BaseModel):
+    uid: str
+    query: str
+    conversation_history: list[dict] = []
+
+
+class CVAdviseResponse(BaseModel):
+    query: str
+    answer: str | None = None
+    provider: str | None = None
+    error: str | None = None
+
+
+@app.post("/api/cv/advise", response_model=CVAdviseResponse)
+def cv_advise_endpoint(body: CVAdviseRequest):
+    if not _check_rate_limit("cv", 10):
+        return CVAdviseResponse(query=body.query, error="Rate limit exceeded. Please wait.")
+
+    user = get_user(body.uid)
+    if not user:
+        return CVAdviseResponse(query=body.query, error="User not found. Please create an account first.")
+
+    try:
+        achievements = json.loads(user.get("achievements", "[]"))
+    except:
+        achievements = []
+    user_profile = {
+        "display_name": user.get("display_name", ""),
+        "email": user.get("email", ""),
+        "bio": user.get("bio", ""),
+        "subjects": user.get("subjects", ""),
+        "level": user.get("level", 1),
+        "xp": user.get("xp", 0),
+        "achievements": achievements,
+    }
+
+    subject_parts = [s.strip() for s in user.get("subjects", "").split(",") if s.strip()]
+    search_topic = " ".join(subject_parts) if subject_parts else "scholarship internship opportunity"
+    query = f"{search_topic} {body.query} Nepal"
+
+    search_resp = search_nepal(query, max_results=6)
+    snippets = []
+    if search_resp and not search_resp.error:
+        snippets = [
+            {
+                "title": r.title,
+                "url": r.url,
+                "snippet": r.snippet,
+                "source_site": r.source_site,
+            }
+            for r in search_resp.results
+        ]
+
+    answer, provider = generate_cv_advice_with_fallback(
+        user_query=body.query,
+        user_profile=user_profile,
+        search_snippets=snippets,
+        conversation_history=body.conversation_history or None,
+    )
+
+    if answer is None:
+        return CVAdviseResponse(
+            query=body.query,
+            error="No AI provider is currently available. Please configure at least one API key in your .env file, or start Ollama locally.",
+        )
+
+    return CVAdviseResponse(query=body.query, answer=answer, provider=provider)
+
+
 @app.on_event("startup")
 def on_startup():
     init_db()
@@ -615,9 +688,7 @@ _rate_log: dict[str, list[float]] = {}
 def _check_rate_limit(key: str, max_calls: int = 20) -> bool:
     now = time.time()
     window = _RATE_LIMIT_WINDOW
-    if key not in _rate_log:
-        _rate_log[key] = []
-    _rate_log[key] = [t for t in _rate_log[key] if now - t < window]
+    _rate_log[key] = [t for t in _rate_log.get(key, []) if now - t < window]
     if len(_rate_log[key]) >= max_calls:
         return False
     _rate_log[key].append(now)
@@ -748,9 +819,29 @@ def auth_register(body: AuthRegisterRequest):
         init_people = True
     except:
         pass
-    token = create_auth_token(body.uid)
+    token, refresh_token = create_auth_token_pair(body.uid)
     user = get_user(body.uid)
-    return {"ok": True, "token": token, "user": _format_user(user)}
+    return {"ok": True, "token": token, "refresh_token": refresh_token, "user": _format_user(user)}
+
+
+class AuthChangePasswordRequest(BaseModel):
+    token: str
+    current_password: str
+    new_password: str
+
+
+@app.post("/api/auth/change-password")
+def auth_change_password(body: AuthChangePasswordRequest):
+    uid = _validate_token(body.token)
+    if not uid:
+        return {"ok": False, "error": "Invalid or expired token"}
+    if len(body.new_password) < 4:
+        return {"ok": False, "error": "New password must be at least 4 characters"}
+    user = authenticate(uid, body.current_password)
+    if not user:
+        return {"ok": False, "error": "Current password is incorrect"}
+    ok = update_user_password(uid, hash_password(body.new_password))
+    return {"ok": ok, "error": None}
 
 
 @app.post("/api/auth/login")
@@ -758,8 +849,21 @@ def auth_login(body: AuthLoginRequest):
     user = authenticate(body.uid, body.password)
     if not user:
         return {"ok": False, "error": "Invalid username or password"}
-    token = create_auth_token(body.uid)
-    return {"ok": True, "token": token, "user": _format_user(user)}
+    token, refresh_token = create_auth_token_pair(body.uid)
+    return {"ok": True, "token": token, "refresh_token": refresh_token, "user": _format_user(user)}
+
+
+class AuthRefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@app.post("/api/auth/refresh")
+def auth_refresh(body: AuthRefreshRequest):
+    result = refresh_auth_token(body.refresh_token)
+    if not result:
+        return {"ok": False, "error": "Invalid or expired refresh token"}
+    access, new_refresh = result
+    return {"ok": True, "token": access, "refresh_token": new_refresh}
 
 
 @app.post("/api/auth/logout")
@@ -824,11 +928,31 @@ def _format_user(user: dict) -> dict:
 
 @app.get("/api/health")
 def health_check():
+    active_providers = []
+    if settings.ollama_enabled:
+        active_providers.append(f"ollama({settings.ollama_model})")
+    if settings.has_groq_key:
+        active_providers.append(f"groq({settings.groq_model})")
+    if settings.has_gemini_key:
+        active_providers.append(f"gemini({settings.gemini_model})")
+    if settings.has_nvidia_key:
+        active_providers.append(f"nvidia({settings.nvidia_model})")
+    if settings.has_openrouter_key:
+        active_providers.append(f"openrouter({settings.openrouter_model})")
+    if settings.has_together_key:
+        active_providers.append(f"together({settings.together_model})")
+    if settings.has_huggingface_key:
+        active_providers.append(f"huggingface({settings.huggingface_model})")
+    if settings.has_cloudflare_key:
+        active_providers.append(f"cloudflare({settings.cloudflare_model})")
     return {
         "status": "ok",
         "openai_configured": settings.has_openai_key,
         "ollama_enabled": settings.ollama_enabled,
         "ollama_model": settings.ollama_model,
+        "groq_configured": settings.has_groq_key,
+        "active_providers": active_providers,
+        "provider_chain_order": ["groq", "gemini", "nvidia", "openrouter", "together", "ollama", "huggingface", "cloudflare"],
         "local_index_exists": index_status()["exists"],
     }
 

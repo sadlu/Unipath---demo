@@ -116,13 +116,13 @@ export default function ExploreView() {
   }, [query, doSearch])
 
   return (
-    <div className={`w-full ${isMobile ? 'px-4' : 'max-w-2xl mx-auto px-5'} pb-8`}>
-      <div className="flex flex-col gap-1 mb-4">
+    <div className={`w-full ${isMobile ? '' : 'max-w-2xl mx-auto px-5'} pb-8 mobile-native`}>
+      <div className={`flex flex-col gap-1 mb-4 ${isMobile ? 'px-4' : ''}`}>
         <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">Explore</h2>
         <p className="text-sm text-slate-400">Discover local events happening in Kathmandu Valley.</p>
       </div>
 
-      <div className="flex flex-col gap-2 mb-5">
+      <div className={`flex flex-col gap-2 mb-5 ${isMobile ? 'px-4' : ''}`}>
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input

@@ -38,7 +38,7 @@ def _build_nepal_query(user_query: str) -> str:
     return query
 
 
-def _duckduckgo_search(query: str, max_results: int = 8, timeout_s: int = 8) -> SearchResponse:
+def _duckduckgo_search(query: str, max_results: int = 8, timeout_s: int = 10) -> SearchResponse:
     try:
         from ddgs import DDGS
     except ImportError:
@@ -46,7 +46,7 @@ def _duckduckgo_search(query: str, max_results: int = 8, timeout_s: int = 8) -> 
             from duckduckgo_search import DDGS
         except ImportError:
             return SearchResponse(
-                error="duckduckgo_search not installed. "
+                error="DuckDuckGo search not installed. "
                       "Run: pip install ddgs"
             )
 

@@ -1,21 +1,10 @@
 import type { PeopleUser, Conversation, ChatMessage } from '../types'
 
-const CUSTOM_API_URL_KEY = 'unipath_server_url'
 const DEFAULT_PROD_URL = 'https://unipath-proxy.fouadazad1234.workers.dev'
 
-export function getCustomApiUrl(): string | null {
-  try {
-    return localStorage.getItem(CUSTOM_API_URL_KEY)
-  } catch { return null }
-}
-
-export function setCustomApiUrl(url: string): void {
-  localStorage.setItem(CUSTOM_API_URL_KEY, url)
-}
-
 export function getApiBase(): string {
-  const custom = getCustomApiUrl()
-  if (custom) return custom
+  const stored = localStorage.getItem('unipath_server_url')
+  if (stored) return stored
   const envUrl = import.meta.env.VITE_API_URL
   if (envUrl) return envUrl
   if (import.meta.env.PROD) return DEFAULT_PROD_URL
@@ -325,6 +314,7 @@ export interface AuthUserData {
 }
 
 const TOKEN_KEY = 'unipath_auth_token'
+const REFRESH_TOKEN_KEY = 'unipath_refresh_token'
 
 export function getStoredToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
@@ -338,9 +328,33 @@ export function clearToken() {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+export function getStoredRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
+}
+
+export function storeRefreshToken(token: string) {
+  localStorage.setItem(REFRESH_TOKEN_KEY, token)
+}
+
+export function clearRefreshToken() {
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+}
+
+export async function authRefresh(refreshToken: string): Promise<{ ok: boolean; token?: string; refresh_token?: string; error?: string }> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    return res.json()
+  } catch { return { ok: false, error: 'Server unreachable' } }
+}
+
 export async function authRegister(
   uid: string, displayName: string, password: string, subjects?: string[],
-): Promise<{ ok: boolean; token?: string; user?: AuthUserData; error?: string }> {
+): Promise<{ ok: boolean; token?: string; refresh_token?: string; user?: AuthUserData; error?: string }> {
   try {
     const res = await fetch(`${getApiBase()}/api/auth/register`, {
       method: 'POST',
@@ -359,7 +373,7 @@ export async function authRegister(
 
 export async function authLogin(
   uid: string, password: string,
-): Promise<{ ok: boolean; token?: string; user?: AuthUserData; error?: string }> {
+): Promise<{ ok: boolean; token?: string; refresh_token?: string; user?: AuthUserData; error?: string }> {
   try {
     const res = await fetch(`${getApiBase()}/api/auth/login`, {
       method: 'POST',
@@ -390,6 +404,21 @@ export async function authLogout(token: string): Promise<void> {
     await fetch(`${getApiBase()}/api/auth/logout?token=${encodeURIComponent(token)}`, { method: 'POST' })
   } catch {}
   clearToken()
+  clearRefreshToken()
+}
+
+export async function authChangePassword(
+  token: string, currentPassword: string, newPassword: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/auth/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, current_password: currentPassword, new_password: newPassword }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    return res.json()
+  } catch { return { ok: false, error: 'Server unreachable' } }
 }
 
 export async function authSync(token: string, data: {
@@ -423,4 +452,28 @@ export async function checkApiHealth(): Promise<boolean> {
     const res = await fetch(`${getApiBase()}/api/health`, { signal: AbortSignal.timeout(5000) })
     return res.ok
   } catch { return false }
+}
+
+/* ── CV Coach API ── */
+
+export interface CVAdviseResponse {
+  query: string
+  answer: string | null
+  provider: string | null
+  error: string | null
+}
+
+export async function cvAdvise(
+  uid: string,
+  query: string,
+  conversationHistory: { role: string; content: string }[] = [],
+): Promise<CVAdviseResponse> {
+  const res = await fetch(`${getApiBase()}/api/cv/advise`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid, query, conversation_history: conversationHistory }),
+    signal: AbortSignal.timeout(60_000),
+  })
+  if (!res.ok) throw new Error(`CV API error: ${res.status}`)
+  return res.json()
 }

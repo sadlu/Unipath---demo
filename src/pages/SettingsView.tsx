@@ -1,16 +1,36 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import { useIsMobile } from '../hooks/useIsMobile'
 import {
   User, Palette, Bell, Shield, Settings2,
   LogOut, ChevronRight, Trash2, Info,
   Sun, Moon, Monitor, Volume2, Check, Mail, BadgeCheck, Key, AlertTriangle,
-  Camera, Pencil, Lock, Globe, Wifi, WifiOff, RefreshCw
+  Camera, Pencil, Lock, Globe, Wifi, WifiOff, RefreshCw, Edit3
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { registerEmail, verifyEmail, getProfile, uploadAvatar, updateProfile, getCustomApiUrl, setCustomApiUrl, checkApiHealth } from '../services/api'
+import { registerEmail, verifyEmail, getProfile, uploadAvatar, updateProfile, getApiBase, checkApiHealth, getStoredToken, authChangePassword, clearToken } from '../services/api'
 import * as localAuth from '../localAuth'
+
+function TiltCard({ children, className }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [rx, setRx] = useState(0)
+  const [ry, setRy] = useState(0)
+  function handleMouse(e: React.MouseEvent) {
+    if (!ref.current) return
+    const r = ref.current.getBoundingClientRect()
+    setRx(-((e.clientY - r.top) / r.height - 0.5) * 6)
+    setRy(((e.clientX - r.left) / r.width - 0.5) * 6)
+  }
+  function handleLeave() { setRx(0); setRy(0) }
+  return (
+    <div ref={ref} onMouseMove={handleMouse} onMouseLeave={handleLeave} className="perspective-card">
+      <motion.div className={className} animate={{ rotateX: rx, rotateY: ry }} transition={{ type: 'spring', stiffness: 150, damping: 15 }} style={{ transformStyle: 'preserve-3d' }}>
+        {children}
+      </motion.div>
+    </div>
+  )
+}
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -153,9 +173,11 @@ export default function SettingsView() {
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
 
-  const [serverUrl, setServerUrl] = useState(getCustomApiUrl() || '')
   const [serverTesting, setServerTesting] = useState(false)
   const [serverStatus, setServerStatus] = useState<'unknown' | 'online' | 'offline'>('unknown')
+  const [showServerUrlEdit, setShowServerUrlEdit] = useState(false)
+  const [editServerUrl, setEditServerUrl] = useState('')
+  const serverUrl = getApiBase()
 
   useEffect(() => {
     getProfile(userData.uid).then(p => {
@@ -163,24 +185,12 @@ export default function SettingsView() {
     }).catch(() => {})
   }, [userData.uid])
 
-  useEffect(() => {
-    const saved = getCustomApiUrl()
-    if (saved) {
-      setServerUrl(saved)
-      checkServerHealth(saved)
-    }
-  }, [])
+  useEffect(() => { checkServerHealth() }, [])
 
-  async function checkServerHealth(url?: string) {
+  async function checkServerHealth() {
     setServerTesting(true)
-    const target = url || serverUrl || getCustomApiUrl()
-    if (!target) {
-      setServerStatus('unknown')
-      setServerTesting(false)
-      return
-    }
     try {
-      const res = await fetch(`${target}/api/health`, { signal: AbortSignal.timeout(5000) })
+      const res = await fetch(`${serverUrl}/api/health`, { signal: AbortSignal.timeout(5000) })
       setServerStatus(res.ok ? 'online' : 'offline')
     } catch {
       setServerStatus('offline')
@@ -188,23 +198,17 @@ export default function SettingsView() {
     setServerTesting(false)
   }
 
-  function handleSaveServerUrl() {
-    const url = serverUrl.trim()
-    if (!url) {
-      toast.error('Enter a server URL')
-      return
-    }
-    setCustomApiUrl(url)
-    toast.success('Server URL saved')
-    checkServerHealth(url)
-  }
-
   function handleLogout() {
     logout()
     toast('Logged out')
   }
 
-  function handleClearCache() {
+  async function handleClearCache() {
+    if ('caches' in window) {
+      const keys = await caches.keys()
+      await Promise.all(keys.map(k => caches.delete(k)))
+    }
+    localStorage.removeItem('unipath_guest_data')
     toast.success('Cache cleared')
   }
 
@@ -310,27 +314,48 @@ export default function SettingsView() {
       toast.error('Passwords do not match')
       return
     }
-    const username = localAuth.getSessionUsername()
-    if (!username) {
-      toast.error('No active session')
-      return
+    if (authMethod === 'server') {
+      const token = getStoredToken()
+      if (!token) {
+        toast.error('Not authenticated')
+        return
+      }
+      authChangePassword(token, curPw, newPw).then((result) => {
+        if (result.ok) {
+          toast.success('Password changed')
+          setShowChangePassword(false)
+          setCurPw('')
+          setNewPw('')
+          setConfirmPw('')
+        } else {
+          toast.error(result.error || 'Failed to change password')
+        }
+      }).catch(() => {
+        toast.error('Server unreachable')
+      })
+    } else {
+      const username = localAuth.getSessionUsername()
+      if (!username) {
+        toast.error('No active session')
+        return
+      }
+      localAuth.changePassword(username, curPw, newPw).then(() => {
+        toast.success('Password changed')
+        setShowChangePassword(false)
+        setCurPw('')
+        setNewPw('')
+        setConfirmPw('')
+      }).catch((err) => {
+        toast.error(err.message || 'Failed to change password')
+      })
     }
-    localAuth.changePassword(username, curPw, newPw).then(() => {
-      toast.success('Password changed')
-      setShowChangePassword(false)
-      setCurPw('')
-      setNewPw('')
-      setConfirmPw('')
-    }).catch((err) => {
-      toast.error(err.message || 'Failed to change password')
-    })
   }
 
   const content = (
     <>
-      <div className={`w-full ${isMobile ? 'px-4' : 'max-w-2xl mx-auto px-5'} pb-10`}>
+      <div className={`w-full ${isMobile ? '' : 'max-w-2xl mx-auto px-5'} pb-10 mobile-native`}>
         {/* User Header */}
-        <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col items-center gap-3">
+        <TiltCard className={`w-full ${isMobile ? 'px-4 py-6 flex flex-col items-center gap-3' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col items-center gap-3'}`}>
           <div className="relative">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-xl font-black text-white shadow-lg shadow-[#7C5CFC]/30 overflow-hidden">
               {(userData as any).photoURL ? (
@@ -355,12 +380,12 @@ export default function SettingsView() {
             <span className="w-1 h-1 rounded-full bg-slate-600" />
             <span>{authMethod === 'server' ? 'Server Account' : 'Guest'}</span>
           </div>
-        </div>
+        </TiltCard>
 
         <div style={{ height: 24 }} />
 
         {/* Section A: Profile Management */}
-        <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col gap-3">
+        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-3`}>
           <SectionHeader icon={User} label="Profile Management" />
           <div className="flex flex-col gap-1">
             <button onClick={() => { setEditName(userData.displayName); setShowEditProfile(true) }} className="flex items-center justify-between px-3 py-4 md:py-3 rounded-xl hover:bg-white/5 transition-colors">
@@ -391,7 +416,7 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section B: Appearance & Theme */}
-        <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col gap-4">
+        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-4`}>
           <SectionHeader icon={Palette} label="Appearance & Theme" />
 
           <div className="flex flex-col gap-2">
@@ -420,11 +445,17 @@ export default function SettingsView() {
 
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Accent Color</span>
-            <div className="flex gap-3">
+            <div className="flex gap-3 justify-center py-2">
               {ACCENT_COLORS.map(({ name, color }) => (
-                <button key={color} onClick={() => setAccentColor(color)} className="group relative" title={name}>
+                <motion.button
+                  key={color}
+                  onClick={() => setAccentColor(color)}
+                  className="group relative"
+                  title={name}
+                  whileTap={{ scale: 0.85 }}
+                >
                   <div
-                    className={`w-9 h-9 md:w-8 md:h-8 rounded-full transition-all ${
+                    className={`w-10 h-10 md:w-9 md:h-9 rounded-full transition-all ${
                       preferences.accentColor === color
                         ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1E1B2E] scale-110'
                         : 'hover:scale-110'
@@ -434,7 +465,21 @@ export default function SettingsView() {
                   {preferences.accentColor === color && (
                     <Check className="absolute inset-0 m-auto w-3.5 h-3.5 text-white" />
                   )}
-                </button>
+                  {preferences.accentColor === color && (
+                    <motion.span
+                      className="absolute inset-0 rounded-full"
+                      initial={{ scale: 0, opacity: 0.5 }}
+                      animate={{ scale: 2.5, opacity: 0 }}
+                      transition={{ duration: 0.6 }}
+                      style={{ backgroundColor: color }}
+                    />
+                  )}
+                  <motion.span
+                    className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] font-semibold text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
+                  >
+                    {name}
+                  </motion.span>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -481,7 +526,7 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section C: Notifications */}
-        <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col gap-4">
+        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-4`}>
           <SectionHeader icon={Bell} label="Notifications" />
 
           <div className="flex items-center justify-between">
@@ -542,7 +587,7 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section D: Privacy & Security */}
-        <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col gap-4">
+        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-4`}>
           <SectionHeader icon={Shield} label="Privacy & Security" />
 
           <div className="flex flex-col gap-2 pb-2 border-b border-white/5">
@@ -636,7 +681,7 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section E: General */}
-        <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col gap-4">
+        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-4`}>
           <SectionHeader icon={Settings2} label="General" />
 
           <div className="flex items-center justify-between">
@@ -658,30 +703,20 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section F: Server Connection */}
-        <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col gap-4">
+        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col gap-4'}`}>
           <SectionHeader icon={Globe} label="Server Connection" />
 
-          <p className="text-xs text-slate-500 leading-relaxed">
-            On mobile devices, set the URL of your running backend server (the ngrok/Cloudflare URL shown when you run <code className="text-[#7C5CFC]">start_server.sh</code>).
-          </p>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={serverUrl}
-              onChange={(e) => setServerUrl(e.target.value)}
-              placeholder="https://your-server.com"
-              className="flex-1 px-4 py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors font-mono"
-            />
+          <div className={`flex items-center gap-2 ${isMobile ? 'native-list-row' : 'bg-[#0D0B18] border border-[#2D2A3E] rounded-xl px-3 py-2'}`}>
+            <p className="text-[11px] text-slate-500 font-mono truncate flex-1">{serverUrl}</p>
             <button
-              onClick={handleSaveServerUrl}
-              className="px-5 py-3 md:px-4 md:py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-semibold text-white transition-colors shrink-0"
+              onClick={() => { setEditServerUrl(serverUrl); setShowServerUrlEdit(true) }}
+              className="text-xs font-semibold text-[#7C5CFC] hover:text-[#8D6CFF] transition-colors shrink-0"
             >
-              Save
+              <Edit3 className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className={`flex items-center justify-between ${isMobile ? 'native-list-row' : ''}`}>
             <div className="flex items-center gap-2">
               {serverTesting ? (
                 <RefreshCw className="w-4 h-4 text-slate-400 animate-spin" />
@@ -704,18 +739,12 @@ export default function SettingsView() {
               </span>
             </div>
             <button
-              onClick={() => checkServerHealth()}
-              disabled={serverTesting || !serverUrl.trim()}
+              onClick={checkServerHealth}
+              disabled={serverTesting}
               className="text-xs font-semibold text-[#7C5CFC] hover:text-[#8D6CFF] disabled:opacity-40 transition-colors min-h-[36px]"
             >
               Test Connection
             </button>
-          </div>
-
-          <div className="bg-[#0D0B18] border border-[#2D2A3E] rounded-xl px-3 py-2">
-            <p className="text-[11px] text-slate-500 font-mono truncate">
-              {getCustomApiUrl() || 'No custom URL set — using defaults'}
-            </p>
           </div>
         </div>
 
@@ -879,6 +908,85 @@ export default function SettingsView() {
               className="flex-1 py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
             >
               Save
+            </button>
+          </div>
+        </DialogModal>
+      )}
+
+      {/* Server URL Edit */}
+      {isMobile ? (
+        <MobileSheet show={showServerUrlEdit} onClose={() => setShowServerUrlEdit(false)} title="Server URL">
+          <div className="flex flex-col gap-4">
+            <p className="text-xs text-slate-400">Enter the backend server URL. The app will use this URL for all API requests.</p>
+            <input
+              type="text"
+              value={editServerUrl}
+              onChange={(e) => setEditServerUrl(e.target.value)}
+              placeholder="https://your-server.com"
+              autoCapitalize="off"
+              autoCorrect="off"
+              className="w-full px-4 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 font-mono focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+            />
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setShowServerUrlEdit(false)}
+              className="flex-1 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const url = editServerUrl.trim()
+                if (!url) {
+                  localStorage.removeItem('unipath_server_url')
+                } else {
+                  localStorage.setItem('unipath_server_url', url)
+                }
+                setShowServerUrlEdit(false)
+                window.location.reload()
+              }}
+              className="flex-1 py-3 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
+            >
+              Save & Reload
+            </button>
+          </div>
+        </MobileSheet>
+      ) : (
+        <DialogModal show={showServerUrlEdit} onClose={() => setShowServerUrlEdit(false)} title="Server URL">
+          <div className="flex flex-col gap-4">
+            <p className="text-xs text-slate-400">Enter the backend server URL. The app will use this for all API requests.</p>
+            <input
+              type="text"
+              value={editServerUrl}
+              onChange={(e) => setEditServerUrl(e.target.value)}
+              placeholder="https://your-server.com"
+              autoCapitalize="off"
+              autoCorrect="off"
+              className="w-full px-4 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 font-mono focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+            />
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setShowServerUrlEdit(false)}
+              className="flex-1 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const url = editServerUrl.trim()
+                if (!url) {
+                  localStorage.removeItem('unipath_server_url')
+                } else {
+                  localStorage.setItem('unipath_server_url', url)
+                }
+                setShowServerUrlEdit(false)
+                window.location.reload()
+              }}
+              className="flex-1 py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
+            >
+              Save & Reload
             </button>
           </div>
         </DialogModal>

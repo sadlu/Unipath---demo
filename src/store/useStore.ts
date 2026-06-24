@@ -183,6 +183,7 @@ export const useStore = create<AppState>((set, get) => {
         throw new Error(result.error || 'Login failed')
       }
       api.storeToken(result.token)
+      if (result.refresh_token) api.storeRefreshToken(result.refresh_token)
       const userData = apiUserToUserData(result.user)
       set({ authMethod: 'server', userData })
     },
@@ -193,18 +194,32 @@ export const useStore = create<AppState>((set, get) => {
         throw new Error(result.error || 'Registration failed')
       }
       api.storeToken(result.token)
+      if (result.refresh_token) api.storeRefreshToken(result.refresh_token)
       let userData = apiUserToUserData(result.user)
       userData = { ...userData, hasSeenTutorial: false }
       set({ authMethod: 'server', userData })
     },
 
     restoreSession: async () => {
-      const token = api.getStoredToken()
+      let token = api.getStoredToken()
       if (!token) return
-      const result = await api.authMe(token)
+      let result = await api.authMe(token)
       if (!result.ok || !result.user) {
-        api.clearToken()
-        return
+        const refreshToken = api.getStoredRefreshToken()
+        if (refreshToken) {
+          const refreshResult = await api.authRefresh(refreshToken)
+          if (refreshResult.ok && refreshResult.token) {
+            api.storeToken(refreshResult.token)
+            if (refreshResult.refresh_token) api.storeRefreshToken(refreshResult.refresh_token)
+            token = refreshResult.token
+            result = await api.authMe(token)
+          }
+        }
+        if (!result.ok || !result.user) {
+          api.clearToken()
+          api.clearRefreshToken()
+          return
+        }
       }
       const userData = apiUserToUserData(result.user)
       set({ authMethod: 'server', userData })

@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import time
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
@@ -21,6 +22,8 @@ from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 1.  LINK LIBRARY  — 5 credible Nepalese notice & education portals
@@ -88,7 +91,7 @@ def _fetch_html(url: str) -> Optional[str]:
         resp.encoding = resp.apparent_encoding or "utf-8"
         return resp.text
     except requests.RequestException as e:
-        print(f"  [NETWORK ERROR] {e}")
+        logger.warning(f"  [NETWORK ERROR] {e}")
         return None
 
 
@@ -215,10 +218,10 @@ def scrape_all() -> str:
     entries: list[ScrapedPage] = []
     total = len(SOURCE_LINKS)
 
-    print(f"Scraping {total} Nepal education portals ...\n")
+    logger.info(f"Scraping {total} Nepal education portals ...")
     for i, entry in enumerate(SOURCE_LINKS, 1):
         label = f"[{i}/{total}] {entry['name']}"
-        print(f"  {label}  ({entry['url']})", end="")
+        logger.info(f"  {label}  ({entry['url']})")
         result = scrape_source(entry)
         if result:
             entries.append(result)
@@ -226,14 +229,14 @@ def scrape_all() -> str:
             l = len(result.links)
             d = len(result.dates)
             b = len(result.body_text)
-            print(f"  ✓  {h} headlines, {l} links, {d} dates, {b} chars")
+            logger.info(f"  ✓  {h} headlines, {l} links, {d} dates, {b} chars")
         else:
-            print(f"  ✗  FAILED")
+            logger.warning(f"  ✗  FAILED")
         if i < total:
             time.sleep(CRAWL_DELAY)
 
     _write_index(entries)
-    print(f"\nDone — {len(entries)}/{total} sources saved to {SCRAPED_FILE}")
+    logger.info(f"Done — {len(entries)}/{total} sources saved to {SCRAPED_FILE}")
     return SCRAPED_FILE
 
 

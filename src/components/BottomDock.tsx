@@ -1,11 +1,12 @@
 import { useStore } from '../store/useStore'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { motion } from 'framer-motion'
-import { Home, Sparkles, Users, MessageCircle, User, Settings } from 'lucide-react'
+import { Home, Sparkles, Users, MessageCircle, User, Settings, GraduationCap } from 'lucide-react'
 
 const NAV_ITEMS = [
   { id: 'home', icon: Home, label: 'Home' },
   { id: 'discover', icon: Sparkles, label: 'Discover' },
+  { id: 'cv-coach', icon: GraduationCap, label: 'Coach' },
   { id: 'people', icon: Users, label: 'People' },
   { id: 'chat', icon: MessageCircle, label: 'Chat' },
   { id: 'profile', icon: User, label: 'Profile' },
@@ -22,15 +23,18 @@ export default function BottomDock() {
   if (isMobile) {
     return (
       <div className="w-full fixed bottom-0 left-0 right-0 z-20" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        <div className="w-full px-2 py-1.5 flex items-center justify-around" style={{ background: 'rgba(19, 17, 28, 0.92)', backdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="w-full px-2 py-1.5 flex items-center justify-around overflow-x-auto" style={{ background: 'rgba(19, 17, 28, 0.92)', backdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           {NAV_ITEMS.map((item) => {
             const isActive = active(item.id)
             const Icon = item.icon
             return (
-              <button
+              <motion.button
                 key={item.id}
                 onClick={() => setView(item.id)}
-                className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] min-h-[48px] rounded-xl transition-all duration-200 px-2"
+                className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] min-h-[48px] rounded-xl px-2 shrink-0"
+                whileTap={{ scale: 0.85 }}
+                animate={isActive ? { y: [0, -6, 0] } : { y: 0 }}
+                transition={{ duration: 0.3 }}
               >
                 <Icon
                   className={`transition-all duration-200 ${
@@ -45,7 +49,7 @@ export default function BottomDock() {
                 }`}>
                   {item.label}
                 </span>
-              </button>
+              </motion.button>
             )
           })}
         </div>
@@ -60,10 +64,13 @@ export default function BottomDock() {
           const isActive = active(item.id)
           const Icon = item.icon
           return (
-            <button
+            <motion.button
               key={item.id}
               onClick={() => setView(item.id)}
-              className="relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200"
+              className="relative flex items-center justify-center w-10 h-10 rounded-xl"
+              whileTap={{ scale: 0.85 }}
+              animate={isActive ? { y: [0, -4, 0] } : { y: 0 }}
+              transition={{ duration: 0.3 }}
             >
               {isActive && (
                 <motion.div
@@ -87,7 +94,7 @@ export default function BottomDock() {
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
-            </button>
+            </motion.button>
           )
         })}
       </div>

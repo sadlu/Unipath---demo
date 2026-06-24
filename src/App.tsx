@@ -14,6 +14,7 @@ import ProfileView from './pages/ProfileView'
 import SettingsView from './pages/SettingsView'
 import PeopleView from './pages/PeopleView'
 import ChatView from './pages/ChatView'
+import CVCoachView from './pages/CVCoachView'
 import AchievementModal from './components/AchievementModal'
 import ConfettiOverlay from './components/ConfettiOverlay'
 import TutorialOverlay from './components/TutorialOverlay'
@@ -89,6 +90,8 @@ export default function App() {
         return <PeopleView onStartChat={handleStartChat} />
       case 'chat':
         return <ChatView startChatUid={chatTargetUid} onBack={() => setChatTargetUid(undefined)} />
+      case 'cv-coach':
+        return <CVCoachView />
       default:
         return <HomeView />
     }
@@ -106,9 +109,9 @@ export default function App() {
         <TitleBar />
       )}
 
-      <div className="fixed top-[-20vh] left-[-10vw] w-[40vw] h-[40vw] rounded-full bg-[#7C5CFC]/10 blur-[120px] pointer-events-none z-0" />
-      <div className="fixed bottom-[-10vh] right-[-5vw] w-[30vw] h-[30vw] rounded-full bg-[#6EE7B7]/8 blur-[100px] pointer-events-none z-0" />
-      <div className="fixed bottom-[20vh] left-[-8vw] w-[25vw] h-[25vw] rounded-full bg-blue-500/6 blur-[80px] pointer-events-none z-0" />
+      <div className="fixed top-[-20vh] left-[-10vw] w-[50vw] h-[50vw] rounded-full bg-[#7C5CFC]/15 blur-[150px] pointer-events-none z-0 animate-pulse" style={{ animationDuration: '6s' }} />
+      <div className="fixed bottom-[-15vh] right-[-10vw] w-[40vw] h-[40vw] rounded-full bg-[#F59E0B]/10 blur-[130px] pointer-events-none z-0 animate-pulse" style={{ animationDuration: '8s' }} />
+      <div className="fixed top-[40vh] left-[50%] -translate-x-1/2 w-[30vw] h-[30vw] rounded-full bg-purple-500/5 blur-[100px] pointer-events-none z-0" />
 
       <main className={`flex-1 w-full flex flex-col items-center justify-start z-10 overflow-y-auto min-h-0 ${isMobile ? 'pt-14 pb-20 px-0' : 'pt-16 pb-4'}`}>
         <ErrorBoundary key={view}>

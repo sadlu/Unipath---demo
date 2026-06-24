@@ -18,7 +18,6 @@ def _require_env(name: str) -> str:
     val = os.getenv(name, "")
     if name.startswith("SMTP_") and not val:
         print(f"[config] WARNING: {name} not set; email features will fail", file=sys.stderr)
-        return ""
     return val
 
 
@@ -30,8 +29,30 @@ class Settings:
     openai_model: str = field(default="gpt-4o")
 
     ollama_host: str = field(default="http://127.0.0.1:11434")
-    ollama_model: str = field(default="qwen2.5:0.5b")
+    ollama_model: str = field(default_factory=lambda: os.getenv("OLLAMA_MODEL", "qwen2.5:0.5b"))
     ollama_enabled: bool = field(default=False)
+
+    groq_api_key: str = field(default_factory=lambda: os.getenv("GROQ_API_KEY", ""))
+    groq_model: str = field(default="llama-3.3-70b-versatile")
+
+    gemini_api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
+    gemini_model: str = field(default="gemini-2.5-flash")
+
+    nvidia_api_key: str = field(default_factory=lambda: os.getenv("NVIDIA_API_KEY", ""))
+    nvidia_model: str = field(default="meta/llama-3.3-70b-instruct")
+
+    openrouter_api_key: str = field(default_factory=lambda: os.getenv("OPENROUTER_API_KEY", ""))
+    openrouter_model: str = field(default="nvidia/llama-3.3-nemotron-super-49b-v1:free")
+
+    huggingface_api_key: str = field(default_factory=lambda: os.getenv("HUGGINGFACE_API_KEY", ""))
+    huggingface_model: str = field(default="mistralai/Mistral-7B-Instruct-v0.3")
+
+    cloudflare_api_key: str = field(default_factory=lambda: os.getenv("CLOUDFLARE_API_KEY", ""))
+    cloudflare_account_id: str = field(default_factory=lambda: os.getenv("CLOUDFLARE_ACCOUNT_ID", ""))
+    cloudflare_model: str = field(default="@cf/meta/llama-3.1-8b-instruct")
+
+    together_api_key: str = field(default_factory=lambda: os.getenv("TOGETHER_API_KEY", ""))
+    together_model: str = field(default="mistralai/Mixtral-8x7B-Instruct-v0.1")
 
     server_host: str = field(default="0.0.0.0")
     server_port: int = field(default=8000)
@@ -62,6 +83,34 @@ class Settings:
     @property
     def has_openai_key(self) -> bool:
         return bool(self.openai_api_key)
+
+    @property
+    def has_groq_key(self) -> bool:
+        return bool(self.groq_api_key)
+
+    @property
+    def has_gemini_key(self) -> bool:
+        return bool(self.gemini_api_key)
+
+    @property
+    def has_nvidia_key(self) -> bool:
+        return bool(self.nvidia_api_key)
+
+    @property
+    def has_openrouter_key(self) -> bool:
+        return bool(self.openrouter_api_key)
+
+    @property
+    def has_huggingface_key(self) -> bool:
+        return bool(self.huggingface_api_key)
+
+    @property
+    def has_cloudflare_key(self) -> bool:
+        return bool(self.cloudflare_api_key) and bool(self.cloudflare_account_id)
+
+    @property
+    def has_together_key(self) -> bool:
+        return bool(self.together_api_key)
 
     @property
     def smtp_configured(self) -> bool:
