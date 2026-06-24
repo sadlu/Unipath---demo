@@ -4,6 +4,7 @@ import os
 import uuid
 import shutil
 import html
+import json
 import time
 from pathlib import Path
 from datetime import datetime, timezone
@@ -85,17 +86,6 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="frontend_assets")
-
-    @app.get("/")
-    @app.get("/{path:path}")
-    def serve_frontend(path: str = ""):
-        if path.startswith("api/") or path.startswith("uploads/"):
-            from fastapi.responses import JSONResponse
-            return JSONResponse({"error": "Not found"}, status_code=404)
-        file = FRONTEND_DIST / "index.html"
-        if file.exists():
-            return FileResponse(str(file))
-        return {"error": "Frontend not built. Run: npx vite build"}
 
 
 class SearchResponse(BaseModel):
@@ -841,6 +831,19 @@ def health_check():
         "ollama_model": settings.ollama_model,
         "local_index_exists": index_status()["exists"],
     }
+
+
+if FRONTEND_DIST.exists():
+    @app.get("/")
+    @app.get("/{path:path}")
+    def serve_frontend(path: str = ""):
+        if path.startswith("api/") or path.startswith("uploads/"):
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"error": "Not found"}, status_code=404)
+        file = FRONTEND_DIST / "index.html"
+        if file.exists():
+            return FileResponse(str(file))
+        return {"error": "Frontend not built. Run: npx vite build"}
 
 
 if __name__ == "__main__":
