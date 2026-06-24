@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, ArrowLeft, ChevronRight, MessageCircle, User, ShieldAlert, BadgeCheck, ImagePlus, Plus } from 'lucide-react'
+import { Send, ArrowLeft, ChevronRight, MessageCircle, User, ShieldAlert, BadgeCheck, ImagePlus, Plus, Search } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -112,13 +112,13 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
   if (activeChat) {
     return (
       <div className={`w-full ${isMobile ? 'px-3' : 'max-w-2xl mx-auto px-5'} pb-4 flex flex-col h-full`}>
-        <div className="flex items-center gap-3 py-3 border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-3 py-3 border-b border-[#00F0FF]/10 shrink-0">
           <motion.button onClick={goBack} whileTap={{ scale: 0.85 }} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5 text-slate-400" />
           </motion.button>
           {activeUser && (
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden shadow-lg shadow-[#7C5CFC]/20">
+              <div className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-[#00F0FF] to-[#7C5CFC] flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden shadow-lg shadow-[#00F0FF]/20">
                 {activeUser.avatar_url ? <img src={activeUser.avatar_url.startsWith('http') ? activeUser.avatar_url : `${getApiBase()}${activeUser.avatar_url}`} className="w-full h-full object-cover" alt="" /> : activeUser.display_name[0]}
               </div>
               <div className="min-w-0">
@@ -155,7 +155,7 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
                   animate={{ opacity: 1, y: 0 }}
                   className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`max-w-[80%] md:max-w-[75%] px-3.5 py-2.5 md:px-3.5 md:py-2 rounded-2xl text-sm leading-relaxed ${isMe ? 'bg-[#7C5CFC] text-white rounded-br-md shadow-lg shadow-[#7C5CFC]/20' : 'bg-[#1E1B2E] border border-[#2D2A3E] text-slate-200 rounded-bl-md'}`}>
+                  <div className={`max-w-[80%] md:max-w-[75%] px-3.5 py-2.5 md:px-3.5 md:py-2 rounded-2xl text-sm leading-relaxed ${isMe ? 'bg-gradient-to-r from-[#7C5CFC] to-[#00F0FF] text-white rounded-br-md shadow-lg shadow-[#00F0FF]/20' : 'holo-glass text-slate-200 rounded-bl-md'}`}>
                     {m.image_url && <img src={m.image_url.startsWith('http') ? m.image_url : `${getApiBase()}${m.image_url}`} className="max-w-full rounded-lg mb-1.5" alt="Shared image" />}
                     {m.content && <span>{m.content}</span>}
                     {isMe && <span className={`block text-right text-[10px] mt-0.5 ${m.read ? 'text-emerald-400' : 'text-slate-600'}`}>{m.read ? 'Read' : 'Sent'}</span>}
@@ -167,18 +167,18 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
           <div ref={bottomRef} />
         </div>
 
-        <div className="flex gap-2 pt-2 border-t border-white/5 shrink-0 relative">
-          <motion.button onClick={pickImage} whileTap={{ scale: 0.85 }} className="px-4 py-3 md:px-3 md:py-2.5 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl hover:bg-white/5 transition-colors shrink-0">
-            <ImagePlus className="w-5 h-5 md:w-4 md:h-4 text-slate-400" />
+        <div className="flex gap-2 pt-2 border-t border-[#00F0FF]/10 shrink-0 relative">
+          <motion.button onClick={pickImage} whileTap={{ scale: 0.85 }} className="px-4 py-3 md:px-3 md:py-2.5 holo-glass rounded-xl hover:bg-white/5 transition-colors shrink-0">
+            <ImagePlus className="w-5 h-5 md:w-4 md:h-4 text-[#00F0FF]" />
           </motion.button>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleSendImage(f); e.target.value = '' }} />
-          {otherTyping && <div className="absolute -top-5 left-14 text-[11px] text-slate-500 italic animate-pulse">typing...</div>}
+          {otherTyping && <div className="absolute -top-5 left-14 text-[11px] text-[#00F0FF] italic animate-pulse">typing...</div>}
           <input
             type="text" value={input} onChange={(e) => handleTyping(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="Type a message..." disabled={sending}
-            className="flex-1 px-4 py-3 md:px-4 md:py-2.5 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none transition-all input-glow"
+            className="flex-1 px-4 py-3 md:px-4 md:py-2.5 holo-glass text-sm text-slate-200 placeholder-slate-500 focus:outline-none transition-all input-glow disabled:opacity-40"
           />
-          <motion.button onClick={handleSend} disabled={(!input.trim() && !pendingImage) || sending} whileTap={{ scale: 0.85 }} className="px-5 py-3 md:px-4 md:py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] disabled:opacity-40 rounded-xl transition-colors">
+          <motion.button onClick={handleSend} disabled={(!input.trim() && !pendingImage) || sending} whileTap={{ scale: 0.85 }} className="neon-btn px-5 py-3 md:px-4 md:py-2.5 disabled:opacity-40 rounded-xl">
             <Send className="w-5 h-5 md:w-4 md:h-4 text-white" />
           </motion.button>
         </div>
@@ -190,12 +190,12 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
     <div className={`w-full ${isMobile ? 'px-4' : 'max-w-2xl mx-auto px-5'} pb-8 flex flex-col gap-4`}>
       <h2 className="text-xl font-extrabold text-white">Messages</h2>
 
-      <div className="relative glass rounded-xl overflow-hidden" style={{ backdropFilter: 'blur(16px)' }}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 z-10" />
+      <div className="relative holo-glass rounded-xl overflow-hidden">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#00F0FF]/50 z-10" />
         <input
           type="text"
           placeholder="Search conversations..."
-          className="w-full pl-10 pr-4 py-3 md:py-2.5 bg-transparent border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none transition-all input-glow"
+          className="w-full pl-10 pr-4 py-3 md:py-2.5 bg-transparent border-0 text-sm text-slate-200 placeholder-slate-500 focus:outline-none transition-all"
         />
       </div>
 
@@ -203,7 +203,7 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
         <div className="flex flex-col items-center gap-3 mt-10 text-slate-500">
           <MessageCircle className="w-10 h-10" />
           <p className="text-sm">No conversations yet</p>
-          <p className="text-xs">Go to <span className="text-[#7C5CFC]">People</span> tab to find and message others</p>
+          <p className="text-xs">Go to <span className="text-[#00F0FF]">People</span> tab to find and message others</p>
         </div>
       )}
 
@@ -215,11 +215,11 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
               variants={rowVariants}
               layout
               onClick={() => selectChat(c.other_uid)}
-              className="w-full flex items-center gap-3 px-4 py-4 md:py-3 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl hover:bg-white/5 transition-all text-left group"
-              whileHover={{ x: 4, borderColor: 'rgba(124,92,252,0.3)' }}
+              className="w-full flex items-center gap-3 px-4 py-4 md:py-3 holo-glass rounded-xl hover:bg-white/5 transition-all text-left group"
+              whileHover={{ x: 4, borderColor: 'rgba(0,240,255,0.3)' }}
             >
               <div className="relative shrink-0">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-sm font-bold text-white shadow-lg shadow-[#7C5CFC]/20">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00F0FF] to-[#7C5CFC] flex items-center justify-center text-sm font-bold text-white shadow-lg shadow-[#00F0FF]/20">
                   {c.display_name[0]}
                 </div>
                 {c.unread > 0 && <div className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg">{c.unread}</div>}
@@ -241,10 +241,10 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
       </motion.div>
 
       <motion.button
-        className="fab w-12 h-12 rounded-full bg-gradient-to-br from-[#7C5CFC] to-[#6D4FF2] flex items-center justify-center shadow-2xl shadow-[#7C5CFC]/40"
-        whileHover={{ scale: 1.1 }}
+        className="fab w-12 h-12 rounded-full neon-btn flex items-center justify-center shadow-2xl"
+        whileHover={{ scale: 1.1, boxShadow: '0 0 40px rgba(0,240,255,0.4)' }}
         whileTap={{ scale: 0.9 }}
-        animate={{ boxShadow: ['0 0 20px rgba(124,92,252,0.3)', '0 0 40px rgba(124,92,252,0.5)', '0 0 20px rgba(124,92,252,0.3)'] }}
+        animate={{ boxShadow: ['0 0 20px rgba(0,240,255,0.2)', '0 0 40px rgba(0,240,255,0.4)', '0 0 20px rgba(0,240,255,0.2)'] }}
         transition={{ duration: 2, repeat: Infinity }}
         onClick={() => toast('Go to People tab to start a new conversation')}
         style={{ position: isMobile ? 'fixed' : 'absolute', bottom: isMobile ? 80 : -20 }}

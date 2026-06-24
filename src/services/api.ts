@@ -3,11 +3,9 @@ import type { PeopleUser, Conversation, ChatMessage } from '../types'
 const DEFAULT_PROD_URL = 'https://unipath-proxy.fouadazad1234.workers.dev'
 
 export function getApiBase(): string {
-  const stored = localStorage.getItem('unipath_server_url')
-  if (stored) return stored
+  if (import.meta.env.PROD) return DEFAULT_PROD_URL
   const envUrl = import.meta.env.VITE_API_URL
   if (envUrl) return envUrl
-  if (import.meta.env.PROD) return DEFAULT_PROD_URL
   return 'http://localhost:8000'
 }
 

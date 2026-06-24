@@ -5,7 +5,7 @@ import {
   User, Palette, Bell, Shield, Settings2,
   LogOut, ChevronRight, Trash2, Info,
   Sun, Moon, Monitor, Volume2, Check, Mail, BadgeCheck, Key, AlertTriangle,
-  Camera, Pencil, Lock, Globe, Wifi, WifiOff, RefreshCw, Edit3
+  Camera, Pencil, Lock, Globe, Wifi, WifiOff, RefreshCw
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
@@ -52,7 +52,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 function SectionHeader({ icon: Icon, label }: { icon: any; label: string }) {
   return (
     <div className="flex items-center gap-2 px-1">
-      <Icon className="w-4 h-4 text-[#7C5CFC]" />
+      <Icon className="w-4 h-4 text-[#00F0FF]" />
       <h3 className="text-sm font-bold text-white">{label}</h3>
     </div>
   )
@@ -92,7 +92,7 @@ function MobileSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-            className="w-full max-w-lg bg-[#1E1B2E] border border-[#2D2A3E] rounded-t-3xl p-6 shadow-2xl"
+            className="w-full max-w-lg holo-glass-strong rounded-t-3xl p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -130,7 +130,7 @@ function DialogModal({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="w-full max-w-sm bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-6 shadow-2xl"
+            className="w-full max-w-sm holo-glass-strong rounded-2xl p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-extrabold text-white mb-4">{title}</h3>
@@ -175,8 +175,6 @@ export default function SettingsView() {
 
   const [serverTesting, setServerTesting] = useState(false)
   const [serverStatus, setServerStatus] = useState<'unknown' | 'online' | 'offline'>('unknown')
-  const [showServerUrlEdit, setShowServerUrlEdit] = useState(false)
-  const [editServerUrl, setEditServerUrl] = useState('')
   const serverUrl = getApiBase()
 
   useEffect(() => {
@@ -355,16 +353,16 @@ export default function SettingsView() {
     <>
       <div className={`w-full ${isMobile ? '' : 'max-w-2xl mx-auto px-5'} pb-10 mobile-native`}>
         {/* User Header */}
-        <TiltCard className={`w-full ${isMobile ? 'px-4 py-6 flex flex-col items-center gap-3' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col items-center gap-3'}`}>
+        <TiltCard className={`w-full ${isMobile ? 'px-4 py-6 flex flex-col items-center gap-3' : 'holo-glass-strong rounded-2xl p-5 flex flex-col items-center gap-3 neon-glow-purple'}`}>
           <div className="relative">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-xl font-black text-white shadow-lg shadow-[#7C5CFC]/30 overflow-hidden">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#00F0FF] to-[#7C5CFC] flex items-center justify-center text-xl font-black text-white shadow-lg shadow-[#00F0FF]/30 overflow-hidden">
               {(userData as any).photoURL ? (
                 <img src={(userData as any).photoURL} className="w-full h-full object-cover" alt="" />
               ) : (
                 userData.displayName[0]
               )}
             </div>
-            <label className="absolute -bottom-1 -right-1 w-7 h-7 md:w-6 md:h-6 bg-[#7C5CFC] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#6D4FF2] transition-colors shadow-lg">
+            <label className="absolute -bottom-1 -right-1 w-7 h-7 md:w-6 md:h-6 bg-gradient-to-r from-[#00F0FF] to-[#7C5CFC] rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity shadow-lg">
               <Camera className="w-3.5 h-3.5 md:w-3 md:h-3 text-white" />
               <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
             </label>
@@ -374,7 +372,7 @@ export default function SettingsView() {
             <p className="text-xs text-slate-500 mt-0.5">{userData.email}</p>
           </div>
           <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap justify-center">
-            <span className="font-semibold text-[#7C5CFC]">Lv {userData.level}</span>
+            <span className="font-semibold text-[#00F0FF]">Lv {userData.level}</span>
             <span className="w-1 h-1 rounded-full bg-slate-600" />
             <span>{userData.xp} XP</span>
             <span className="w-1 h-1 rounded-full bg-slate-600" />
@@ -385,7 +383,7 @@ export default function SettingsView() {
         <div style={{ height: 24 }} />
 
         {/* Section A: Profile Management */}
-        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-3`}>
+        <div className={`w-full ${isMobile ? 'native-section' : 'holo-glass rounded-2xl p-5'} flex flex-col gap-3`}>
           <SectionHeader icon={User} label="Profile Management" />
           <div className="flex flex-col gap-1">
             <button onClick={() => { setEditName(userData.displayName); setShowEditProfile(true) }} className="flex items-center justify-between px-3 py-4 md:py-3 rounded-xl hover:bg-white/5 transition-colors">
@@ -406,7 +404,7 @@ export default function SettingsView() {
             )}
             <div className="flex items-center justify-between px-3 py-4 md:py-3">
               <span className="text-sm text-slate-200">Account Type</span>
-              <span className="text-xs font-semibold text-[#7C5CFC] bg-[#7C5CFC]/10 px-2.5 py-1 rounded-full">
+              <span className="text-xs font-bold text-[#00F0FF] bg-[#00F0FF]/10 px-2.5 py-1 rounded-full">
                 {authMethod === 'server' ? 'Server Account' : 'Guest'}
               </span>
             </div>
@@ -416,7 +414,7 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section B: Appearance & Theme */}
-        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-4`}>
+        <div className={`w-full ${isMobile ? 'native-section' : 'holo-glass rounded-2xl p-5'} flex flex-col gap-4`}>
           <SectionHeader icon={Palette} label="Appearance & Theme" />
 
           <div className="flex flex-col gap-2">
@@ -432,8 +430,8 @@ export default function SettingsView() {
                   onClick={() => setTheme(value)}
                   className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 md:py-2.5 rounded-xl text-xs font-semibold transition-all ${
                     preferences.theme === value
-                      ? 'bg-[#7C5CFC] text-white shadow-lg shadow-[#7C5CFC]/20'
-                      : 'bg-[#0D0B18] text-slate-400 border border-[#2D2A3E] hover:border-[#7C5CFC]/30'
+                      ? 'bg-gradient-to-r from-[#00F0FF] to-[#7C5CFC] text-white shadow-lg shadow-[#00F0FF]/20'
+                      : 'bg-[#0D0B18] text-slate-400 border border-[#00F0FF]/20 hover:border-[#00F0FF]/30'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -489,7 +487,7 @@ export default function SettingsView() {
             <div className="relative">
               <button
                 onClick={() => setShowLangPicker(!showLangPicker)}
-                className="w-full flex items-center justify-between px-3 py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 hover:border-[#7C5CFC]/30 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-3 md:py-2.5 bg-[#0D0B18] border border-[#00F0FF]/20 rounded-xl text-sm text-slate-200 hover:border-[#00F0FF]/40 transition-colors"
               >
                 <span>{LANGUAGES.find(l => l.code === preferences.language)?.label || 'English'}</span>
                 <ChevronRight className="w-4 h-4 text-slate-500" />
@@ -508,7 +506,7 @@ export default function SettingsView() {
                         onClick={() => handleLangSelect(code)}
                         className={`w-full flex items-center justify-between px-3 py-3 md:py-2.5 text-sm transition-colors ${
                           preferences.language === code
-                            ? 'text-[#7C5CFC] bg-[#7C5CFC]/10'
+                            ? 'text-[#00F0FF] bg-[#00F0FF]/10'
                             : 'text-slate-300 hover:bg-white/5'
                         }`}
                       >
@@ -526,7 +524,7 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section C: Notifications */}
-        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-4`}>
+        <div className={`w-full ${isMobile ? 'native-section' : 'holo-glass rounded-2xl p-5'} flex flex-col gap-4`}>
           <SectionHeader icon={Bell} label="Notifications" />
 
           <div className="flex items-center justify-between">
@@ -564,7 +562,7 @@ export default function SettingsView() {
                 <Volume2 className="w-3.5 h-3.5 text-slate-500" />
                 Sound Volume
               </span>
-              <span className="text-xs font-bold text-[#7C5CFC]">{settings.soundVolume}%</span>
+              <span className="text-xs font-bold text-[#00F0FF]">{settings.soundVolume}%</span>
             </div>
             <input
               type="range"
@@ -575,10 +573,10 @@ export default function SettingsView() {
               className="w-full h-2 bg-[#0D0B18] rounded-full appearance-none cursor-pointer
                 [&::-webkit-slider-thumb]:appearance-none
                 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
-                [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#7C5CFC]
-                [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-[#7C5CFC]/40
+                [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gradient-to-r [&::-webkit-slider-thumb]:from-[#00F0FF] [&::-webkit-slider-thumb]:to-[#7C5CFC]
+                [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-[#00F0FF]/40
                 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5
-                [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#7C5CFC]
+                [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-gradient-to-r [&::-moz-range-thumb]:from-[#00F0FF] [&::-moz-range-thumb]:to-[#7C5CFC]
                 [&::-moz-range-thumb]:border-0"
             />
           </div>
@@ -587,7 +585,7 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section D: Privacy & Security */}
-        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-4`}>
+        <div className={`w-full ${isMobile ? 'native-section' : 'holo-glass rounded-2xl p-5'} flex flex-col gap-4`}>
           <SectionHeader icon={Shield} label="Privacy & Security" />
 
           <div className="flex flex-col gap-2 pb-2 border-b border-white/5">
@@ -601,12 +599,12 @@ export default function SettingsView() {
                 value={localEmail}
                 onChange={(e) => setLocalEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="flex-1 px-4 py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+                className="flex-1 px-4 py-3 md:py-2.5 bg-[#0D0B18] border border-[#00F0FF]/20 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00F0FF]/50 transition-colors"
               />
               <button
                 onClick={handleSendVerification}
                 disabled={verifSending}
-                className="px-5 py-3 md:px-4 md:py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] disabled:opacity-40 rounded-xl text-sm font-semibold text-white transition-colors shrink-0"
+                className="neon-btn px-5 py-3 md:px-4 md:py-2.5 disabled:opacity-40 rounded-xl text-sm font-semibold text-white shrink-0"
               >
                 {verifSending ? '...' : 'Send Code'}
               </button>
@@ -633,12 +631,12 @@ export default function SettingsView() {
                     value={verifCode}
                     onChange={(e) => setVerifCode(e.target.value)}
                     placeholder="Enter 6-digit code"
-                    className="w-full pl-10 pr-4 py-3 md:py-2 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+                    className="w-full pl-10 pr-4 py-3 md:py-2 bg-[#0D0B18] border border-[#00F0FF]/20 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00F0FF]/50 transition-colors"
                   />
                 </div>
                 <button
                   onClick={handleVerify}
-                  className="px-5 py-3 md:px-4 md:py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-semibold text-white transition-colors shrink-0"
+                  className="neon-btn px-5 py-3 md:px-4 md:py-2 rounded-xl text-sm font-semibold text-white shrink-0"
                 >
                   Verify
                 </button>
@@ -668,7 +666,7 @@ export default function SettingsView() {
 
           <button
             onClick={handleClearCache}
-            className="flex items-center justify-between px-3 py-4 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl hover:border-slate-500/30 transition-colors"
+            className="flex items-center justify-between px-3 py-4 md:py-2.5 bg-[#0D0B18] border border-[#00F0FF]/20 rounded-xl hover:border-[#00F0FF]/40 transition-colors"
           >
             <div className="flex items-center gap-2">
               <Trash2 className="w-4 h-4 text-slate-400" />
@@ -681,7 +679,7 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section E: General */}
-        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5'} flex flex-col gap-4`}>
+        <div className={`w-full ${isMobile ? 'native-section' : 'holo-glass rounded-2xl p-5'} flex flex-col gap-4`}>
           <SectionHeader icon={Settings2} label="General" />
 
           <div className="flex items-center justify-between">
@@ -703,17 +701,11 @@ export default function SettingsView() {
         <div style={{ height: 20 }} />
 
         {/* Section F: Server Connection */}
-        <div className={`w-full ${isMobile ? 'native-section' : 'bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col gap-4'}`}>
+        <div className={`w-full ${isMobile ? 'native-section' : 'holo-glass rounded-2xl p-5 flex flex-col gap-4'}`}>
           <SectionHeader icon={Globe} label="Server Connection" />
 
-          <div className={`flex items-center gap-2 ${isMobile ? 'native-list-row' : 'bg-[#0D0B18] border border-[#2D2A3E] rounded-xl px-3 py-2'}`}>
+          <div className={`flex items-center gap-2 ${isMobile ? 'native-list-row' : 'bg-[#0D0B18] border border-[#00F0FF]/20 rounded-xl px-3 py-2'}`}>
             <p className="text-[11px] text-slate-500 font-mono truncate flex-1">{serverUrl}</p>
-            <button
-              onClick={() => { setEditServerUrl(serverUrl); setShowServerUrlEdit(true) }}
-              className="text-xs font-semibold text-[#7C5CFC] hover:text-[#8D6CFF] transition-colors shrink-0"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-            </button>
           </div>
 
           <div className={`flex items-center justify-between ${isMobile ? 'native-list-row' : ''}`}>
@@ -741,7 +733,7 @@ export default function SettingsView() {
             <button
               onClick={checkServerHealth}
               disabled={serverTesting}
-              className="text-xs font-semibold text-[#7C5CFC] hover:text-[#8D6CFF] disabled:opacity-40 transition-colors min-h-[36px]"
+              className="text-xs font-semibold text-[#00F0FF] hover:text-[#00F0FF]/80 disabled:opacity-40 transition-colors min-h-[36px]"
             >
               Test Connection
             </button>
@@ -753,7 +745,7 @@ export default function SettingsView() {
         {/* Logout */}
         <button
           onClick={() => setShowLogoutConfirm(true)}
-          className="w-full py-4 md:py-3 border-2 border-rose-500/40 hover:border-rose-500 rounded-2xl text-sm font-bold text-rose-400 hover:text-rose-300 transition-colors flex items-center justify-center gap-2"
+          className="w-full py-4 md:py-3 holo-glass border border-rose-500/40 hover:border-rose-500 rounded-2xl text-sm font-bold text-rose-400 hover:text-rose-300 transition-colors flex items-center justify-center gap-2"
         >
           <LogOut className="w-4 h-4" />
           Log Out
@@ -764,7 +756,7 @@ export default function SettingsView() {
         {/* Reset */}
         <button
           onClick={() => setShowResetConfirm(true)}
-          className="w-full py-4 md:py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-2xl text-xs font-semibold text-slate-500 hover:text-rose-400 hover:border-rose-500/40 transition-colors"
+          className="w-full py-4 md:py-3 holo-glass rounded-2xl text-xs font-semibold text-slate-500 hover:text-rose-400 hover:border-rose-500/40 transition-colors"
         >
           Reset All Progress
         </button>
@@ -779,13 +771,13 @@ export default function SettingsView() {
           <div className="flex gap-3">
             <button
               onClick={() => setShowLogoutConfirm(false)}
-              className="flex-1 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+              className="flex-1 py-3 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleLogout}
-              className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 rounded-xl text-sm font-bold text-white transition-colors"
+              className="flex-1 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:opacity-90 rounded-xl text-sm font-bold text-white transition-all"
             >
               Log Out
             </button>
@@ -797,7 +789,7 @@ export default function SettingsView() {
           <div className="flex gap-3">
             <button
               onClick={() => setShowLogoutConfirm(false)}
-              className="flex-1 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+              className="flex-1 py-2.5 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
             >
               Cancel
             </button>
@@ -820,7 +812,7 @@ export default function SettingsView() {
           <div className="flex gap-3">
             <button
               onClick={() => setShowResetConfirm(false)}
-              className="flex-1 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+              className="flex-1 py-3 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
             >
               Cancel
             </button>
@@ -840,7 +832,7 @@ export default function SettingsView() {
           <div className="flex gap-3">
             <button
               onClick={() => setShowResetConfirm(false)}
-              className="flex-1 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+              className="flex-1 py-2.5 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
             >
               Cancel
             </button>
@@ -864,20 +856,20 @@ export default function SettingsView() {
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="w-full px-4 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+                className="w-full px-4 py-3 bg-[#0D0B18] border border-[#00F0FF]/20 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00F0FF]/50 transition-colors"
               />
             </div>
           </div>
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setShowEditProfile(false)}
-              className="flex-1 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+              className="flex-1 py-3 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveProfile}
-              className="flex-1 py-3 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
+              className="flex-1 py-3 neon-btn rounded-xl text-sm font-bold text-white transition-colors"
             >
               Save
             </button>
@@ -892,14 +884,14 @@ export default function SettingsView() {
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="w-full px-4 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+                className="w-full px-4 py-2.5 bg-[#0D0B18] border border-[#00F0FF]/20 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00F0FF]/50 transition-colors"
               />
             </div>
           </div>
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setShowEditProfile(false)}
-              className="flex-1 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+              className="flex-1 py-2.5 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
             >
               Cancel
             </button>
@@ -908,85 +900,6 @@ export default function SettingsView() {
               className="flex-1 py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
             >
               Save
-            </button>
-          </div>
-        </DialogModal>
-      )}
-
-      {/* Server URL Edit */}
-      {isMobile ? (
-        <MobileSheet show={showServerUrlEdit} onClose={() => setShowServerUrlEdit(false)} title="Server URL">
-          <div className="flex flex-col gap-4">
-            <p className="text-xs text-slate-400">Enter the backend server URL. The app will use this URL for all API requests.</p>
-            <input
-              type="text"
-              value={editServerUrl}
-              onChange={(e) => setEditServerUrl(e.target.value)}
-              placeholder="https://your-server.com"
-              autoCapitalize="off"
-              autoCorrect="off"
-              className="w-full px-4 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 font-mono focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
-            />
-          </div>
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={() => setShowServerUrlEdit(false)}
-              className="flex-1 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                const url = editServerUrl.trim()
-                if (!url) {
-                  localStorage.removeItem('unipath_server_url')
-                } else {
-                  localStorage.setItem('unipath_server_url', url)
-                }
-                setShowServerUrlEdit(false)
-                window.location.reload()
-              }}
-              className="flex-1 py-3 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
-            >
-              Save & Reload
-            </button>
-          </div>
-        </MobileSheet>
-      ) : (
-        <DialogModal show={showServerUrlEdit} onClose={() => setShowServerUrlEdit(false)} title="Server URL">
-          <div className="flex flex-col gap-4">
-            <p className="text-xs text-slate-400">Enter the backend server URL. The app will use this for all API requests.</p>
-            <input
-              type="text"
-              value={editServerUrl}
-              onChange={(e) => setEditServerUrl(e.target.value)}
-              placeholder="https://your-server.com"
-              autoCapitalize="off"
-              autoCorrect="off"
-              className="w-full px-4 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 font-mono focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
-            />
-          </div>
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={() => setShowServerUrlEdit(false)}
-              className="flex-1 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                const url = editServerUrl.trim()
-                if (!url) {
-                  localStorage.removeItem('unipath_server_url')
-                } else {
-                  localStorage.setItem('unipath_server_url', url)
-                }
-                setShowServerUrlEdit(false)
-                window.location.reload()
-              }}
-              className="flex-1 py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
-            >
-              Save & Reload
             </button>
           </div>
         </DialogModal>
@@ -1027,13 +940,13 @@ export default function SettingsView() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setShowChangePassword(false)}
-              className="flex-1 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+              className="flex-1 py-3 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleChangePassword}
-              className="flex-1 py-3 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
+              className="flex-1 py-3 neon-btn rounded-xl text-sm font-bold text-white transition-colors"
             >
               Change
             </button>
@@ -1073,7 +986,7 @@ export default function SettingsView() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setShowChangePassword(false)}
-              className="flex-1 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+              className="flex-1 py-2.5 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
             >
               Cancel
             </button>
@@ -1082,6 +995,85 @@ export default function SettingsView() {
               className="flex-1 py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
             >
               Change
+            </button>
+          </div>
+        </DialogModal>
+      )}
+
+      {/* Server URL Edit */}
+      {isMobile ? (
+        <MobileSheet show={showServerUrlEdit} onClose={() => setShowServerUrlEdit(false)} title="Server URL">
+          <div className="flex flex-col gap-4">
+            <p className="text-xs text-slate-400">Enter the backend server URL. The app will use this URL for all API requests.</p>
+            <input
+              type="text"
+              value={editServerUrl}
+              onChange={(e) => setEditServerUrl(e.target.value)}
+              placeholder="https://your-server.com"
+              autoCapitalize="off"
+              autoCorrect="off"
+              className="w-full px-4 py-3 bg-[#0D0B18] border border-[#00F0FF]/20 rounded-xl text-sm text-slate-200 font-mono focus:outline-none focus:border-[#00F0FF]/50 transition-colors"
+            />
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setShowServerUrlEdit(false)}
+              className="flex-1 py-3 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const url = editServerUrl.trim()
+                if (!url) {
+                  localStorage.removeItem('unipath_server_url')
+                } else {
+                  localStorage.setItem('unipath_server_url', url)
+                }
+                setShowServerUrlEdit(false)
+                window.location.reload()
+              }}
+              className="flex-1 py-3 neon-btn rounded-xl text-sm font-bold text-white transition-colors"
+            >
+              Save & Reload
+            </button>
+          </div>
+        </MobileSheet>
+      ) : (
+        <DialogModal show={showServerUrlEdit} onClose={() => setShowServerUrlEdit(false)} title="Server URL">
+          <div className="flex flex-col gap-4">
+            <p className="text-xs text-slate-400">Enter the backend server URL. The app will use this for all API requests.</p>
+            <input
+              type="text"
+              value={editServerUrl}
+              onChange={(e) => setEditServerUrl(e.target.value)}
+              placeholder="https://your-server.com"
+              autoCapitalize="off"
+              autoCorrect="off"
+              className="w-full px-4 py-2.5 bg-[#0D0B18] border border-[#00F0FF]/20 rounded-xl text-sm text-slate-200 font-mono focus:outline-none focus:border-[#00F0FF]/50 transition-colors"
+            />
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setShowServerUrlEdit(false)}
+              className="flex-1 py-2.5 holo-glass rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/5 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const url = editServerUrl.trim()
+                if (!url) {
+                  localStorage.removeItem('unipath_server_url')
+                } else {
+                  localStorage.setItem('unipath_server_url', url)
+                }
+                setShowServerUrlEdit(false)
+                window.location.reload()
+              }}
+              className="flex-1 py-2.5 neon-btn rounded-xl text-sm font-bold text-white transition-colors"
+            >
+              Save & Reload
             </button>
           </div>
         </DialogModal>

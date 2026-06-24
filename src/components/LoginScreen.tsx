@@ -105,9 +105,9 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#13111C] flex items-center justify-center p-4 md:p-6 relative overflow-hidden">
+    <div className={`w-full ${isMobile ? 'min-h-[100dvh] overflow-y-auto' : 'min-h-screen'} bg-[#13111C] flex ${isMobile ? 'flex-col' : 'items-center justify-center'} p-4 md:p-6 relative`}>
       <motion.div
-        className="absolute inset-0 pointer-events-none"
+        className="fixed inset-0 pointer-events-none"
         animate={{
           background: [
             'radial-gradient(600px circle at 20% 30%, rgba(124,92,252,0.08) 0%, transparent 70%)',
@@ -120,13 +120,13 @@ export default function LoginScreen() {
       />
 
       <motion.div
-        className="w-full max-w-md relative z-10"
+        className={`w-full ${isMobile ? '' : 'max-w-md'} relative z-10 ${isMobile ? 'mt-8 mb-20' : ''}`}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
       >
         <motion.div
-          className="text-center mb-6 md:mb-8"
+          className={`text-center ${isMobile ? 'mb-4' : 'mb-6 md:mb-8'}`}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -142,17 +142,15 @@ export default function LoginScreen() {
         </motion.div>
 
         <motion.div
-          className="bg-[#1E1B2E]/90 backdrop-blur-xl border border-[#2D2A3E] rounded-2xl p-5 md:p-6 shadow-2xl shadow-[#7C5CFC]/5"
+          className={`${isMobile ? 'bg-[#1E1B2E]/80 border border-[#2D2A3E] rounded-2xl p-4' : 'bg-[#1E1B2E]/90 backdrop-blur-xl border border-[#2D2A3E] rounded-2xl p-5 md:p-6 shadow-2xl shadow-[#7C5CFC]/5'}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1, ease: 'easeOut' }}
         >
-          <div className="flex mb-6 bg-[#0D0B18] rounded-xl p-1">
+          <div className="flex mb-4 bg-[#0D0B18] rounded-xl p-1">
             <motion.button
               onClick={() => handleTabSwitch('login')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 rounded-lg text-sm font-semibold relative ${
-                tab === 'login' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-              }`}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold relative ${tab === 'login' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
               whileTap={{ scale: 0.96 }}
             >
               {tab === 'login' && (
@@ -169,9 +167,7 @@ export default function LoginScreen() {
             </motion.button>
             <motion.button
               onClick={() => handleTabSwitch('register')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 rounded-lg text-sm font-semibold relative ${
-                tab === 'register' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-              }`}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold relative ${tab === 'register' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
               whileTap={{ scale: 0.96 }}
             >
               {tab === 'register' && (
@@ -199,7 +195,7 @@ export default function LoginScreen() {
                 transition={{ duration: 0.2 }}
                 className="flex flex-col gap-4"
               >
-                <motion.div variants={itemVariants} className="flex flex-col gap-1.5">
+                <motion.div variants={itemVariants} className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     Username
                   </label>
@@ -211,12 +207,12 @@ export default function LoginScreen() {
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="Enter your username"
                       autoComplete="username"
-                      className="w-full pl-10 pr-4 py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors focus:shadow-[0_0_20px_-8px_#7C5CFC]"
+                      className="w-full pl-10 pr-4 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors focus:shadow-[0_0_20px_-8px_#7C5CFC]"
                     />
                   </div>
                 </motion.div>
 
-                <motion.div variants={itemVariants} className="flex flex-col gap-1.5">
+                <motion.div variants={itemVariants} className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     Password
                   </label>
@@ -235,14 +231,14 @@ export default function LoginScreen() {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
                       autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
-                      className="w-full pl-10 pr-4 py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors focus:shadow-[0_0_20px_-8px_#7C5CFC]"
+                      className="w-full pl-10 pr-4 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors focus:shadow-[0_0_20px_-8px_#7C5CFC]"
                     />
                   </div>
                 </motion.div>
 
                 {tab === 'register' && (
                   <>
-                    <motion.div variants={itemVariants} className="flex flex-col gap-1.5">
+                    <motion.div variants={itemVariants} className="flex flex-col gap-1">
                       <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                         Display Name
                       </label>
@@ -251,15 +247,15 @@ export default function LoginScreen() {
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
                         placeholder="How should we call you?"
-                        className="w-full px-4 py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors focus:shadow-[0_0_20px_-8px_#7C5CFC]"
+                        className="w-full px-4 py-3 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors focus:shadow-[0_0_20px_-8px_#7C5CFC]"
                       />
                     </motion.div>
 
-                    <motion.div variants={itemVariants} className="flex flex-col gap-1.5">
+                    <motion.div variants={itemVariants} className="flex flex-col gap-1">
                       <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                         A-Level Subjects
                       </label>
-                      <div className="max-h-40 overflow-y-auto flex flex-wrap gap-1.5 p-2 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl">
+                      <div className={`flex flex-wrap gap-1.5 p-2 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl ${isMobile ? 'max-h-[40vh]' : 'max-h-40'} overflow-y-auto`} style={{ WebkitOverflowScrolling: 'touch' }}>
                         {ALEVEL_SUBJECTS.map((subject) => {
                           const selected = selectedSubjects.includes(subject)
                           return (
@@ -267,11 +263,7 @@ export default function LoginScreen() {
                               key={subject}
                               type="button"
                               onClick={() => { toggleSubject(subject); selected ? sounds.toggleOff() : sounds.toggleOn() }}
-                              className={`px-3 py-1.5 md:px-2.5 md:py-1 rounded-lg text-xs font-semibold relative ${
-                                selected
-                                  ? 'text-white'
-                                  : 'text-slate-400 hover:text-slate-200'
-                              }`}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold relative ${selected ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
                               whileTap={{ scale: 0.9 }}
                               layout
                             >
@@ -316,7 +308,7 @@ export default function LoginScreen() {
                 <motion.button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 md:py-2.5 bg-gradient-to-r from-[#7C5CFC] to-[#6D4FF2] hover:from-[#8D6CFF] hover:to-[#7C5CFC] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-bold text-white shadow-lg shadow-[#7C5CFC]/30 flex items-center justify-center gap-2 relative overflow-hidden"
+                  className="w-full py-3 bg-gradient-to-r from-[#7C5CFC] to-[#6D4FF2] hover:from-[#8D6CFF] hover:to-[#7C5CFC] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-bold text-white shadow-lg shadow-[#7C5CFC]/30 flex items-center justify-center gap-2 relative overflow-hidden"
                   whileHover={!loading ? { scale: 1.02 } : {}}
                   whileTap={!loading ? { scale: 0.97 } : {}}
                   onMouseEnter={() => sounds.click()}
@@ -348,7 +340,7 @@ export default function LoginScreen() {
           >
             <motion.button
               onClick={() => { sounds.click(); continueAsGuest() }}
-              className="w-full py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] hover:border-[#7C5CFC]/30 rounded-xl text-sm font-semibold text-slate-400 hover:text-slate-200 transition-colors"
+              className="w-full py-3 bg-[#0D0B18] border border-[#2D2A3E] hover:border-[#7C5CFC]/30 rounded-xl text-sm font-semibold text-slate-400 hover:text-slate-200 transition-colors"
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.97 }}
             >
@@ -358,7 +350,7 @@ export default function LoginScreen() {
         </motion.div>
 
         <motion.p
-          className="text-center text-xs text-slate-600 mt-6"
+          className="text-center text-xs text-slate-600 mt-6 pb-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
