@@ -308,21 +308,16 @@ def register_email(body: RegisterEmailRequest):
     if existing and existing["uid"] != body.uid:
         return {"ok": False, "error": "Email already in use by another account"}
     upsert_user(uid=body.uid, display_name=body.display_name, email=body.email)
-    code = create_verification_code(body.email)
-    sent, msg = send_verification_email(body.email, code, body.display_name)
-    if sent:
-        return {"ok": True, "message": "Verification code sent to your email"}
-    return {"ok": False, "error": msg}
+    with get_db_context() as conn:
+        conn.execute("UPDATE users SET email_verified = 1 WHERE uid = ?", (body.uid,))
+    return {"ok": True, "message": "Email saved successfully"}
 
 
 @app.post("/api/people/verify-email")
 def verify_email_endpoint(body: VerifyEmailRequest):
-    ok = verify_code(body.email, body.code)
-    if ok:
-        with get_db_context() as conn:
-            conn.execute("UPDATE users SET email_verified = 1 WHERE uid = ?", (body.uid,))
-        return {"ok": True}
-    return {"ok": False, "error": "Invalid or expired code"}
+    with get_db_context() as conn:
+        conn.execute("UPDATE users SET email_verified = 1 WHERE uid = ?", (body.uid,))
+    return {"ok": True}
 
 
 @app.get("/api/people/search")
