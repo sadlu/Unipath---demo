@@ -1,6 +1,6 @@
 import type { PeopleUser, Conversation, ChatMessage } from '../types'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000')
 
 export interface BackendSearchResult {
   title: string

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: unipath-app
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: UNIPATH_DATA_DIR
+        value: /data
+    disk:
+      name: unipath_data
+      mountPath: /data
+      sizeGB: 1
