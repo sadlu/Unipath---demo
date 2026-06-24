@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { UserData, UserSettings, AppPreferences, ThemeMode } from '../types'
-import * as localAuth from '../localAuth'
+import * as api from '../services/api'
 
 const GUEST_STORAGE_KEY = 'unipath_guest_data'
 const PREFS_STORAGE_KEY = 'unipath_preferences'
@@ -46,20 +46,7 @@ function loadGuestData(): UserData | null {
     const raw = localStorage.getItem(GUEST_STORAGE_KEY)
     if (raw) {
       const data = JSON.parse(raw)
-      if (data && typeof data.xp === 'number') {
-        if (data.settings && typeof data.settings.general1 === 'boolean') {
-          data.settings.autoSave = data.settings.general2 ?? true
-          data.settings.desktopNotifications = data.settings.general3 ?? true
-          data.settings.pushNotifications = data.settings.pushNotifications ?? true
-          data.settings.emailAlerts = data.settings.emailAlerts ?? false
-          data.settings.inAppSounds = data.settings.inAppSounds ?? true
-          data.settings.soundVolume = data.settings.soundVolume ?? 50
-          data.settings.shareAnalytics = data.settings.shareAnalytics ?? true
-          data.settings.onlineStatus = data.settings.onlineStatus ?? true
-          data.settings.reduceMotion = data.settings.reduceMotion ?? false
-        }
-        return data
-      }
+      if (data && typeof data.xp === 'number') return data
     }
   } catch {}
   return null
@@ -97,16 +84,17 @@ interface AppState {
   setAccentColor: (color: string) => void
   setLanguage: (lang: string) => void
 
-  authMethod: 'guest' | 'local' | null
+  authMethod: 'guest' | 'server' | null
   userData: UserData
   currentCardIndex: number
 
   confettiActive: boolean
   achievementModal: string | null
 
-  loginLocal: (username: string, password: string) => Promise<void>
-  registerLocal: (username: string, password: string, displayName: string, subjects?: string[]) => Promise<void>
+  loginServer: (username: string, password: string) => Promise<void>
+  registerServer: (username: string, password: string, displayName: string, subjects?: string[]) => Promise<void>
   continueAsGuest: () => void
+  restoreSession: () => Promise<void>
   logout: () => void
 
   addXP: (amount: number) => void
@@ -121,13 +109,34 @@ interface AppState {
   resetAllProgress: () => void
 }
 
-function persistData(state: { authMethod: 'guest' | 'local' | null; userData: UserData }) {
-  if (state.authMethod === 'guest') {
-    saveGuestData(state.userData)
-  } else if (state.authMethod === 'local') {
-    localAuth.saveCurrentUserData(state.userData).catch((err) =>
-      console.error('[Store] Failed to save encrypted data:', err)
-    )
+function syncToServer(userData: UserData) {
+  const token = api.getStoredToken()
+  if (!token) return
+  api.authSync(token, {
+    xp: userData.xp,
+    level: userData.level,
+    streak_days: userData.streakDays,
+    subjects: userData.subjects,
+    slider_value: userData.sliderValue,
+    achievements: userData.achievements,
+    settings: userData.settings as Record<string, any>,
+  }).catch(() => {})
+}
+
+function apiUserToUserData(u: api.AuthUserData): UserData {
+  return {
+    displayName: u.displayName,
+    email: u.email,
+    photoURL: u.photoURL,
+    uid: u.uid,
+    level: u.level,
+    xp: u.xp,
+    streakDays: u.streakDays,
+    sliderValue: u.sliderValue,
+    settings: { ...DEFAULT_SETTINGS, ...u.settings } as UserSettings,
+    achievements: u.achievements,
+    subjects: u.subjects,
+    hasSeenTutorial: u.hasSeenTutorial,
   }
 }
 
@@ -168,32 +177,37 @@ export const useStore = create<AppState>((set, get) => {
     confettiActive: false,
     achievementModal: null,
 
-    loginLocal: async (username, password) => {
-      const userData = await localAuth.login(username, password)
-      const { getProfile } = await import('../services/api')
-      getProfile(username).then((profile) => {
-        if (profile?.avatar_url) {
-          set((s) => ({
-            userData: { ...s.userData, photoURL: profile.avatar_url! },
-          }))
-        }
-      }).catch(() => {})
-      set({ authMethod: 'local', userData })
+    loginServer: async (username, password) => {
+      const result = await api.authLogin(username, password)
+      if (!result.ok || !result.token || !result.user) {
+        throw new Error(result.error || 'Login failed')
+      }
+      api.storeToken(result.token)
+      const userData = apiUserToUserData(result.user)
+      set({ authMethod: 'server', userData })
     },
 
-    registerLocal: async (username, password, displayName, subjects) => {
-      await localAuth.createAccount(username, password, displayName, subjects)
-      const api = await import('../services/api')
-      await api.initPeopleUser(username, displayName, username).catch(() => {})
-      const userData = await localAuth.login(username, password)
-      api.getProfile(username).then((profile) => {
-        if (profile?.avatar_url) {
-          set((s) => ({
-            userData: { ...s.userData, photoURL: profile.avatar_url! },
-          }))
-        }
-      }).catch(() => {})
-      set({ authMethod: 'local', userData: { ...userData, hasSeenTutorial: false } })
+    registerServer: async (username, password, displayName, subjects) => {
+      const result = await api.authRegister(username, displayName, password, subjects)
+      if (!result.ok || !result.token || !result.user) {
+        throw new Error(result.error || 'Registration failed')
+      }
+      api.storeToken(result.token)
+      let userData = apiUserToUserData(result.user)
+      userData = { ...userData, hasSeenTutorial: false }
+      set({ authMethod: 'server', userData })
+    },
+
+    restoreSession: async () => {
+      const token = api.getStoredToken()
+      if (!token) return
+      const result = await api.authMe(token)
+      if (!result.ok || !result.user) {
+        api.clearToken()
+        return
+      }
+      const userData = apiUserToUserData(result.user)
+      set({ authMethod: 'server', userData })
     },
 
     continueAsGuest: () => {
@@ -203,8 +217,11 @@ export const useStore = create<AppState>((set, get) => {
       set({ authMethod: 'guest', userData })
     },
 
-    logout: () => {
-      localAuth.clearSession()
+    logout: async () => {
+      const token = api.getStoredToken()
+      if (token) {
+        await api.authLogout(token)
+      }
       clearGuestData()
       sessionStorage.clear()
       set({
@@ -222,7 +239,8 @@ export const useStore = create<AppState>((set, get) => {
       const newLevel = calcLevel(newXP)
       const updated = { ...userData, xp: newXP, level: newLevel }
       set({ userData: updated })
-      persistData({ authMethod, userData: updated })
+      if (authMethod === 'server') syncToServer(updated)
+      else if (authMethod === 'guest') saveGuestData(updated)
 
       const hasFirstDiscovery = userData.achievements.includes('First Discovery')
       if (newXP >= 200 && !hasFirstDiscovery) {
@@ -231,7 +249,8 @@ export const useStore = create<AppState>((set, get) => {
           achievements: [...updated.achievements, 'First Discovery'],
         }
         set({ userData: withAchievement, confettiActive: true, achievementModal: 'First Discovery' })
-        persistData({ authMethod, userData: withAchievement })
+        if (authMethod === 'server') syncToServer(withAchievement)
+        else if (authMethod === 'guest') saveGuestData(withAchievement)
       }
     },
 
@@ -247,7 +266,8 @@ export const useStore = create<AppState>((set, get) => {
       }
       const updated = { ...userData, settings: newSettings }
       set({ userData: updated })
-      persistData({ authMethod, userData: updated })
+      if (authMethod === 'server') syncToServer(updated)
+      else if (authMethod === 'guest') saveGuestData(updated)
     },
 
     setSetting: (key, value) => {
@@ -255,21 +275,24 @@ export const useStore = create<AppState>((set, get) => {
       const newSettings = { ...userData.settings, [key]: value }
       const updated = { ...userData, settings: newSettings }
       set({ userData: updated })
-      persistData({ authMethod, userData: updated })
+      if (authMethod === 'server') syncToServer(updated)
+      else if (authMethod === 'guest') saveGuestData(updated)
     },
 
     setEmail: (email) => {
       const { authMethod, userData } = get()
       const updated = { ...userData, email }
       set({ userData: updated })
-      persistData({ authMethod, userData: updated })
+      if (authMethod === 'server') syncToServer(updated)
+      else if (authMethod === 'guest') saveGuestData(updated)
     },
 
     setSliderValue: (value) => {
       const { authMethod, userData } = get()
       const updated = { ...userData, sliderValue: value }
       set({ userData: updated })
-      persistData({ authMethod, userData: updated })
+      if (authMethod === 'server') syncToServer(updated)
+      else if (authMethod === 'guest') saveGuestData(updated)
     },
 
     advanceCard: (totalCards) => {
@@ -282,19 +305,16 @@ export const useStore = create<AppState>((set, get) => {
       const { authMethod, userData } = get()
       const updated = { ...userData, hasSeenTutorial: true }
       set({ userData: updated })
-      persistData({ authMethod, userData: updated })
+      if (authMethod === 'server') syncToServer(updated)
+      else if (authMethod === 'guest') saveGuestData(updated)
     },
 
     dismissConfetti: () => set({ confettiActive: false }),
     dismissAchievement: () => set({ achievementModal: null }),
 
     resetAllProgress: () => {
-      const { authMethod } = get()
       clearGuestData()
-      if (authMethod === 'local') {
-        const username = localAuth.getSessionUsername()
-        if (username) localStorage.removeItem('unipath_user_' + username)
-      }
+      api.clearToken()
       set({
         authMethod: null,
         userData: { ...GUEST_USER },

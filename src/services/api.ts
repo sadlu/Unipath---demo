@@ -281,3 +281,97 @@ export async function updateProfile(
   })
   return res.json()
 }
+
+export interface AuthUserData {
+  displayName: string
+  email: string
+  photoURL: string
+  uid: string
+  xp: number
+  level: number
+  streakDays: number
+  sliderValue: number
+  subjects: string[]
+  achievements: string[]
+  settings: Record<string, any>
+  hasSeenTutorial: boolean
+}
+
+const TOKEN_KEY = 'unipath_auth_token'
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function storeToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+export async function authRegister(
+  uid: string, displayName: string, password: string, subjects?: string[],
+): Promise<{ ok: boolean; token?: string; user?: AuthUserData; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, display_name: displayName, password, subjects: subjects || [] }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    return res.json()
+  } catch (e: any) {
+    return { ok: false, error: e.message || 'Server unreachable' }
+  }
+}
+
+export async function authLogin(
+  uid: string, password: string,
+): Promise<{ ok: boolean; token?: string; user?: AuthUserData; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, password }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    return res.json()
+  } catch (e: any) {
+    return { ok: false, error: e.message || 'Server unreachable' }
+  }
+}
+
+export async function authMe(token: string): Promise<{ ok: boolean; user?: AuthUserData; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/me?token=${encodeURIComponent(token)}`, {
+      signal: AbortSignal.timeout(10_000),
+    })
+    return res.json()
+  } catch { return { ok: false, error: 'Server unreachable' } }
+}
+
+export async function authLogout(token: string): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/api/auth/logout?token=${encodeURIComponent(token)}`, { method: 'POST' })
+  } catch {}
+  clearToken()
+}
+
+export async function authSync(token: string, data: {
+  xp?: number; level?: number; streak_days?: number;
+  subjects?: string[]; slider_value?: number;
+  achievements?: string[]; settings?: Record<string, any>;
+}): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, ...data }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    const d = await res.json()
+    return d.ok === true
+  } catch { return false }
+}

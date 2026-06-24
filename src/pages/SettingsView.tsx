@@ -240,7 +240,7 @@ export default function SettingsView() {
           <span className="w-1 h-1 rounded-full bg-slate-600" />
           <span>{userData.xp} XP</span>
           <span className="w-1 h-1 rounded-full bg-slate-600" />
-          <span>{authMethod === 'local' ? 'Local Account' : 'Guest'}</span>
+          <span>{authMethod === 'server' ? 'Server Account' : 'Guest'}</span>
         </div>
       </div>
 
@@ -257,7 +257,7 @@ export default function SettingsView() {
             </div>
             <ChevronRight className="w-4 h-4 text-slate-500" />
           </button>
-          {authMethod === 'local' && (
+          {authMethod === 'server' && (
             <button onClick={() => setShowChangePassword(true)} className="flex items-center justify-between px-3 py-3 rounded-xl hover:bg-white/5 transition-colors">
               <div className="flex items-center gap-2">
                 <Lock className="w-4 h-4 text-slate-400" />
@@ -269,7 +269,7 @@ export default function SettingsView() {
           <div className="flex items-center justify-between px-3 py-3">
             <span className="text-sm text-slate-200">Account Type</span>
             <span className="text-xs font-semibold text-[#7C5CFC] bg-[#7C5CFC]/10 px-2.5 py-1 rounded-full">
-              {authMethod === 'local' ? 'Local Account' : 'Guest'}
+              {authMethod === 'server' ? 'Server Account' : 'Guest'}
             </span>
           </div>
         </div>

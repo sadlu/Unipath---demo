@@ -15,8 +15,8 @@ const ALEVEL_SUBJECTS = [
 ]
 
 export default function LoginScreen() {
-  const loginLocal = useStore((s) => s.loginLocal)
-  const registerLocal = useStore((s) => s.registerLocal)
+  const loginServer = useStore((s) => s.loginServer)
+  const registerServer = useStore((s) => s.registerServer)
   const continueAsGuest = useStore((s) => s.continueAsGuest)
 
   const [tab, setTab] = useState<'login' | 'register'>('register')
@@ -45,7 +45,7 @@ export default function LoginScreen() {
     }
     setLoading(true)
     try {
-      await loginLocal(username.trim(), password)
+      await loginServer(username.trim(), password)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     }
@@ -69,7 +69,7 @@ export default function LoginScreen() {
     }
     setLoading(true)
     try {
-      await registerLocal(username.trim(), password, displayName.trim(), selectedSubjects)
+      await registerServer(username.trim(), password, displayName.trim(), selectedSubjects)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     }
@@ -238,7 +238,7 @@ export default function LoginScreen() {
         </div>
 
         <p className="text-center text-xs text-slate-600 mt-6">
-          All data is stored locally on your device and encrypted with your password.
+          Sign in from any device with the same credentials.
         </p>
       </div>
     </div>

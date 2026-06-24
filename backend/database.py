@@ -2,6 +2,9 @@ import sqlite3
 import os
 import random
 import string
+import hashlib
+import secrets
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -68,10 +71,18 @@ def init_db():
                 FOREIGN KEY (follower_uid) REFERENCES users(uid),
                 FOREIGN KEY (following_uid) REFERENCES users(uid)
             );
+
+            CREATE TABLE IF NOT EXISTS auth_tokens (
+                token TEXT PRIMARY KEY,
+                uid TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (uid) REFERENCES users(uid)
+            );
         """)
         _migrate_add_image_url(conn)
         _migrate_add_bio(conn)
         _migrate_add_subjects(conn)
+        _migrate_add_auth(conn)
 
 
 def _migrate_add_image_url(conn):
@@ -313,6 +324,102 @@ def update_user_password(uid: str, new_password_hash: str) -> bool:
     with get_db() as conn:
         conn.execute("UPDATE users SET password_hash = ? WHERE uid = ?", (new_password_hash, uid))
         return conn.total_changes > 0
+
+
+def _migrate_add_auth(conn):
+    cur = conn.execute("PRAGMA table_info(users)")
+    cols = [r["name"] for r in cur.fetchall()]
+    for col, typ in [("password_hash", "TEXT DEFAULT ''"), ("streak_days", "INTEGER DEFAULT 0"), ("slider_value", "INTEGER DEFAULT 50"), ("achievements", "TEXT DEFAULT '[]'"), ("settings", "TEXT DEFAULT '{}'")]:
+        if col not in cols:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col} {typ}")
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    h = hashlib.sha256((salt + password).encode()).hexdigest()
+    return f"{salt}:{h}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    if ":" not in stored:
+        return False
+    salt, expected = stored.split(":", 1)
+    h = hashlib.sha256((salt + password).encode()).hexdigest()
+    return h == expected
+
+
+def create_auth_token(uid: str) -> str:
+    token = secrets.token_hex(32)
+    with get_db() as conn:
+        conn.execute("INSERT INTO auth_tokens (token, uid) VALUES (?, ?)", (token, uid))
+    return token
+
+
+def get_uid_by_token(token: str) -> str | None:
+    with get_db() as conn:
+        cur = conn.execute("SELECT uid FROM auth_tokens WHERE token = ?", (token,))
+        row = cur.fetchone()
+        return row["uid"] if row else None
+
+
+def delete_auth_token(token: str):
+    with get_db() as conn:
+        conn.execute("DELETE FROM auth_tokens WHERE token = ?", (token,))
+
+
+def create_account(uid: str, display_name: str, password: str, subjects: list[str] | None = None) -> dict:
+    pwh = hash_password(password)
+    subj_str = ",".join(subjects) if subjects else ""
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO users (uid, display_name, password_hash, subjects, streak_days, last_seen) VALUES (?, ?, ?, ?, 0, datetime('now'))",
+            (uid, display_name, pwh, subj_str),
+        )
+    return get_user(uid)
+
+
+def authenticate(uid: str, password: str) -> dict | None:
+    user = get_user(uid)
+    if not user:
+        return None
+    stored = user.get("password_hash", "")
+    if not stored or not verify_password(password, stored):
+        return None
+    with get_db() as conn:
+        conn.execute("UPDATE users SET last_seen = datetime('now') WHERE uid = ?", (uid,))
+    return user
+
+
+def sync_user_data(uid: str, xp: int | None = None, level: int | None = None, streak_days: int | None = None, subjects: list[str] | None = None, slider_value: int | None = None, achievements: list[str] | None = None, settings: dict | None = None):
+    fields = []
+    params = []
+    if xp is not None:
+        fields.append("xp = ?")
+        params.append(xp)
+    if level is not None:
+        fields.append("level = ?")
+        params.append(level)
+    if streak_days is not None:
+        fields.append("streak_days = ?")
+        params.append(streak_days)
+    if subjects is not None:
+        fields.append("subjects = ?")
+        params.append(",".join(subjects))
+    if slider_value is not None:
+        fields.append("slider_value = ?")
+        params.append(slider_value)
+    if achievements is not None:
+        fields.append("achievements = ?")
+        params.append(json.dumps(achievements))
+    if settings is not None:
+        fields.append("settings = ?")
+        params.append(json.dumps(settings))
+    if not fields:
+        return
+    fields.append("last_seen = datetime('now')")
+    params.append(uid)
+    with get_db() as conn:
+        conn.execute(f"UPDATE users SET {', '.join(fields)} WHERE uid = ?", params)
 
 
 def check_pending_email(uid: str) -> str | None:

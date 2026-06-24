@@ -48,6 +48,13 @@ from database import (
     is_following,
     update_user_profile,
     get_db as get_db_context,
+    create_account,
+    authenticate,
+    create_auth_token,
+    get_uid_by_token,
+    delete_auth_token,
+    sync_user_data,
+    hash_password,
 )
 from email_service import send_verification_email
 
@@ -698,6 +705,131 @@ def chat_mark_read(body: SendMessageRequest):
             (body.to_uid, body.from_uid),
         )
     return {"ok": True}
+
+
+class AuthRegisterRequest(BaseModel):
+    uid: str
+    display_name: str
+    password: str
+    subjects: list[str] = []
+
+
+class AuthLoginRequest(BaseModel):
+    uid: str
+    password: str
+
+
+class AuthSyncRequest(BaseModel):
+    token: str
+    xp: int | None = None
+    level: int | None = None
+    streak_days: int | None = None
+    subjects: list[str] | None = None
+    slider_value: int | None = None
+    achievements: list[str] | None = None
+    settings: dict | None = None
+
+
+def _validate_token(token: str) -> str | None:
+    if not token or len(token) < 10:
+        return None
+    return get_uid_by_token(token)
+
+
+@app.post("/api/auth/register")
+def auth_register(body: AuthRegisterRequest):
+    if len(body.password) < 4:
+        return {"ok": False, "error": "Password must be at least 4 characters"}
+    existing = get_user(body.uid)
+    if existing and existing.get("password_hash"):
+        return {"ok": False, "error": "Username already taken"}
+    if existing and not existing.get("password_hash"):
+        update_user_profile(uid=body.uid, display_name=body.display_name)
+        with get_db_context() as conn:
+            conn.execute("UPDATE users SET password_hash = ? WHERE uid = ?", (hash_password(body.password), body.uid))
+            if body.subjects:
+                conn.execute("UPDATE users SET subjects = ? WHERE uid = ?", (",".join(body.subjects), body.uid))
+    else:
+        create_account(body.uid, body.display_name, body.password, body.subjects)
+    init_people = False
+    try:
+        from pipeline import init_people_user as ipu
+        ipu(body.uid, body.display_name, body.uid)
+        init_people = True
+    except:
+        pass
+    token = create_auth_token(body.uid)
+    user = get_user(body.uid)
+    return {"ok": True, "token": token, "user": _format_user(user)}
+
+
+@app.post("/api/auth/login")
+def auth_login(body: AuthLoginRequest):
+    user = authenticate(body.uid, body.password)
+    if not user:
+        return {"ok": False, "error": "Invalid username or password"}
+    token = create_auth_token(body.uid)
+    return {"ok": True, "token": token, "user": _format_user(user)}
+
+
+@app.post("/api/auth/logout")
+def auth_logout(token: str = Query("")):
+    delete_auth_token(token)
+    return {"ok": True}
+
+
+@app.get("/api/auth/me")
+def auth_me(token: str = Query("")):
+    uid = _validate_token(token)
+    if not uid:
+        return {"ok": False, "error": "Invalid or expired token"}
+    user = get_user(uid)
+    if not user:
+        return {"ok": False, "error": "User not found"}
+    return {"ok": True, "user": _format_user(user)}
+
+
+@app.post("/api/auth/sync")
+def auth_sync(body: AuthSyncRequest):
+    uid = _validate_token(body.token)
+    if not uid:
+        return {"ok": False, "error": "Invalid token"}
+    sync_user_data(
+        uid=uid,
+        xp=body.xp,
+        level=body.level,
+        streak_days=body.streak_days,
+        subjects=body.subjects,
+        slider_value=body.slider_value,
+        achievements=body.achievements,
+        settings=body.settings,
+    )
+    return {"ok": True}
+
+
+def _format_user(user: dict) -> dict:
+    try:
+        achievements = json.loads(user.get("achievements", "[]"))
+    except:
+        achievements = []
+    try:
+        settings_val = json.loads(user.get("settings", "{}"))
+    except:
+        settings_val = {}
+    return {
+        "displayName": user["display_name"],
+        "email": user.get("email", ""),
+        "photoURL": user.get("avatar_url", ""),
+        "uid": user["uid"],
+        "xp": user.get("xp", 0),
+        "level": user.get("level", 1),
+        "streakDays": user.get("streak_days", 0),
+        "sliderValue": user.get("slider_value", 50),
+        "subjects": user.get("subjects", "").split(",") if user.get("subjects") else [],
+        "achievements": achievements,
+        "settings": settings_val,
+        "hasSeenTutorial": True,
+    }
 
 
 @app.get("/api/health")

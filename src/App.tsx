@@ -27,6 +27,13 @@ export default function App() {
   const [peopleInitialized, setPeopleInitialized] = useState(false)
 
   useEffect(() => {
+    const token = localStorage.getItem('unipath_auth_token')
+    if (token && !authMethod) {
+      useStore.getState().restoreSession()
+    }
+  }, [])
+
+  useEffect(() => {
     if (authMethod && userData.uid && !peopleInitialized) {
       setPeopleInitialized(true)
       initPeopleUser(userData.uid, userData.displayName, userData.email).catch(() => {})
