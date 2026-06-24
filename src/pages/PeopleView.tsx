@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, MessageCircle, ChevronRight, User, Mail, X, UserPlus, UserCheck } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { searchPeople, getProfile, followUser, unfollowUser, checkIsFollowing, getFollowers, getFollowing } from '../services/api'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { searchPeople, getProfile, followUser, unfollowUser, checkIsFollowing, getFollowers, getFollowing, getApiBase } from '../services/api'
 import type { PeopleUser } from '../types'
 import toast from 'react-hot-toast'
 
 export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string) => void }) {
+  const isMobile = useIsMobile()
   const userData = useStore((s) => s.userData)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PeopleUser[]>([])
@@ -70,7 +72,7 @@ export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-5 pb-8 flex flex-col gap-4">
+    <div className={`w-full ${isMobile ? 'px-4' : 'max-w-2xl mx-auto px-5'} pb-8 flex flex-col gap-4`}>
       <h2 className="text-xl font-extrabold text-white">People</h2>
 
       <div className="relative">
@@ -80,10 +82,10 @@ export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search by name or email..."
-          className="w-full pl-10 pr-4 py-2.5 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+          className="w-full pl-10 pr-10 py-3 md:py-2.5 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
         />
         {query && (
-          <button onClick={() => { setQuery(''); setResults([]) }} className="absolute right-3 top-1/2 -translate-y-1/2">
+          <button onClick={() => { setQuery(''); setResults([]) }} className="absolute right-3 top-1/2 -translate-y-1/2 p-1">
             <X className="w-4 h-4 text-slate-500 hover:text-slate-300" />
           </button>
         )}
@@ -98,7 +100,7 @@ export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string
       {selectedUser ? (
         <div className="bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <button onClick={() => setSelectedUser(null)} className="text-sm text-slate-400 hover:text-white transition-colors">
+            <button onClick={() => setSelectedUser(null)} className="text-sm text-slate-400 hover:text-white transition-colors min-h-[36px]">
               &larr; Back
             </button>
           </div>
@@ -106,9 +108,9 @@ export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string
             <p className="text-sm text-slate-500">Loading...</p>
           ) : selectedUser ? (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-xl font-black text-white overflow-hidden">
+              <div className="w-20 h-20 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-2xl md:text-xl font-black text-white overflow-hidden">
                 {selectedUser.avatar_url ? (
-                  <img src={selectedUser.avatar_url.startsWith('http') ? selectedUser.avatar_url : `http://localhost:8000${selectedUser.avatar_url}`} className="w-full h-full object-cover" alt="" />
+                  <img src={selectedUser.avatar_url.startsWith('http') ? selectedUser.avatar_url : `${getApiBase()}${selectedUser.avatar_url}`} className="w-full h-full object-cover" alt="" />
                 ) : (
                   selectedUser.display_name[0]
                 )}
@@ -118,7 +120,7 @@ export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string
                 <Mail className="w-3 h-3" />
                 <span>{selectedUser.email || 'No email'}</span>
               </div>
-              <div className="flex items-center gap-3 text-xs text-slate-400">
+              <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap justify-center">
                 <span className="font-semibold text-[#7C5CFC]">Lv {selectedUser.level}</span>
                 <span className="w-1 h-1 rounded-full bg-slate-600" />
                 <span>{selectedUser.xp} XP</span>
@@ -127,10 +129,10 @@ export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string
                 <span className="w-1 h-1 rounded-full bg-slate-600" />
                 <span>{(selectedUser as any).following_count || 0} following</span>
               </div>
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-2 w-full">
                 <button
                   onClick={() => onStartChat?.(selectedUser.uid)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3 md:py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] rounded-xl text-sm font-bold text-white transition-colors"
                 >
                   <MessageCircle className="w-4 h-4" />
                   Send Message
@@ -138,7 +140,7 @@ export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string
                 <button
                   onClick={handleFollowToggle}
                   disabled={followLoading}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                     isFollowing
                       ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 hover:bg-emerald-600/30'
                       : 'bg-[#0D0B18] text-slate-300 border border-[#2D2A3E] hover:border-[#7C5CFC]/50'
@@ -157,11 +159,11 @@ export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string
             <button
               key={u.uid}
               onClick={() => selectUser(u.uid)}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl hover:bg-white/5 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-4 md:py-3 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl hover:bg-white/5 transition-colors text-left"
             >
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-sm font-bold text-white shrink-0 overflow-hidden">
                 {u.avatar_url ? (
-                  <img src={u.avatar_url.startsWith('http') ? u.avatar_url : `http://localhost:8000${u.avatar_url}`} className="w-full h-full object-cover" alt="" />
+                  <img src={u.avatar_url.startsWith('http') ? u.avatar_url : `${getApiBase()}${u.avatar_url}`} className="w-full h-full object-cover" alt="" />
                 ) : (
                   u.display_name[0]
                 )}

@@ -77,7 +77,7 @@ function startBackend(): Promise<void> {
       })
     } else {
       const python = findVenvPython() || findPython()
-      const args = ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8000']
+      const args = ['-m', 'uvicorn', 'backend.main:app', '--host', '0.0.0.0', '--port', '8000']
       backendProcess = spawn(python, args, {
         cwd: PROJECT_ROOT,
         stdio: ['ignore', 'pipe', 'pipe'],

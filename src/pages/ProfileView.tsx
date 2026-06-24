@@ -1,4 +1,5 @@
 import { useStore } from '../store/useStore'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { Award, BookOpen, Trophy, ScrollText, Mail } from 'lucide-react'
 
 const ACHIEVEMENTS = [
@@ -41,6 +42,7 @@ const ACHIEVEMENTS = [
 ]
 
 export default function ProfileView() {
+  const isMobile = useIsMobile()
   const userData = useStore((s) => s.userData)
 
   const xp = userData.xp
@@ -48,10 +50,10 @@ export default function ProfileView() {
   const achievements = userData.achievements
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-5 flex flex-col gap-6 pb-8">
-      <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-6 flex flex-col gap-4">
-        <div className="flex items-center gap-5">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-2xl font-black text-white shrink-0 overflow-hidden">
+    <div className={`w-full ${isMobile ? 'px-4' : 'max-w-2xl mx-auto px-5'} flex flex-col gap-5 md:gap-6 pb-8`}>
+      <div className="w-full bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 md:p-6 flex flex-col gap-4">
+        <div className="flex items-center gap-4 md:gap-5">
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-xl md:text-2xl font-black text-white shrink-0 overflow-hidden">
             {(userData as any).photoURL ? (
               <img src={(userData as any).photoURL} className="w-full h-full object-cover" alt="" />
             ) : (
@@ -59,7 +61,7 @@ export default function ProfileView() {
             )}
           </div>
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-            <h2 className="text-xl font-extrabold text-white truncate">{userData.displayName}</h2>
+            <h2 className="text-lg md:text-xl font-extrabold text-white truncate">{userData.displayName}</h2>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <Mail className="w-3 h-3" />
               <span className="truncate">{userData.email}</span>

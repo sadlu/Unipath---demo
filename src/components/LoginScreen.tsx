@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
-import { LogIn, UserPlus, User, Eye, EyeOff } from 'lucide-react'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { LogIn, UserPlus, User, Eye, EyeOff, Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { useServerStatus } from '../hooks/useServerStatus'
 
 const ALEVEL_SUBJECTS = [
   'Mathematics', 'Further Mathematics', 'Physics', 'Chemistry', 'Biology',
@@ -15,6 +17,7 @@ const ALEVEL_SUBJECTS = [
 ]
 
 export default function LoginScreen() {
+  const isMobile = useIsMobile()
   const loginServer = useStore((s) => s.loginServer)
   const registerServer = useStore((s) => s.registerServer)
   const continueAsGuest = useStore((s) => s.continueAsGuest)
@@ -77,18 +80,18 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#13111C] flex items-center justify-center p-6">
+    <div className="w-full min-h-screen bg-[#13111C] flex items-center justify-center p-4 md:p-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-white tracking-tight">UniPath</h1>
+        <div className="text-center mb-6 md:mb-8">
+          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">UniPath</h1>
           <p className="text-slate-400 text-sm mt-2">Your personal opportunity compass</p>
         </div>
 
-        <div className="bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-6 shadow-2xl">
+        <div className="bg-[#1E1B2E] border border-[#2D2A3E] rounded-2xl p-5 md:p-6 shadow-2xl">
           <div className="flex mb-6 bg-[#0D0B18] rounded-xl p-1">
             <button
               onClick={() => { setTab('login'); setError('') }}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 tab === 'login'
                   ? 'bg-[#7C5CFC] text-white shadow-lg shadow-[#7C5CFC]/20'
                   : 'text-slate-500 hover:text-slate-300'
@@ -99,7 +102,7 @@ export default function LoginScreen() {
             </button>
             <button
               onClick={() => { setTab('register'); setError('') }}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 tab === 'register'
                   ? 'bg-[#7C5CFC] text-white shadow-lg shadow-[#7C5CFC]/20'
                   : 'text-slate-500 hover:text-slate-300'
@@ -123,7 +126,7 @@ export default function LoginScreen() {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter your username"
                   autoComplete="username"
-                  className="w-full pl-10 pr-4 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+                  className="w-full pl-10 pr-4 py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
                 />
               </div>
             </div>
@@ -146,7 +149,7 @@ export default function LoginScreen() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
-                  className="w-full pl-10 pr-4 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+                  className="w-full pl-10 pr-4 py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
                 />
               </div>
             </div>
@@ -162,7 +165,7 @@ export default function LoginScreen() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="How should we call you?"
-                    className="w-full px-4 py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+                    className="w-full px-4 py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
                   />
                 </div>
 
@@ -178,7 +181,7 @@ export default function LoginScreen() {
                           key={subject}
                           type="button"
                           onClick={() => toggleSubject(subject)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                          className={`px-3 py-1.5 md:px-2.5 md:py-1 rounded-lg text-xs font-semibold transition-all ${
                             selected
                               ? 'bg-[#7C5CFC] text-white shadow-sm'
                               : 'bg-[#1E1B2E] text-slate-400 hover:text-slate-200 hover:bg-[#2D2A3E]'
@@ -207,7 +210,7 @@ export default function LoginScreen() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-[#7C5CFC] hover:bg-[#8D6CFF] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-bold text-white transition-colors shadow-lg shadow-[#7C5CFC]/20 flex items-center justify-center gap-2"
+              className="w-full py-3 md:py-2.5 bg-[#7C5CFC] hover:bg-[#8D6CFF] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-bold text-white transition-colors shadow-lg shadow-[#7C5CFC]/20 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <span className="animate-pulse">
@@ -230,7 +233,7 @@ export default function LoginScreen() {
           <div className="mt-4 pt-4 border-t border-[#2D2A3E]">
             <button
               onClick={continueAsGuest}
-              className="w-full py-2.5 bg-[#0D0B18] border border-[#2D2A3E] hover:border-slate-500/30 rounded-xl text-sm font-semibold text-slate-400 hover:text-slate-200 transition-colors"
+              className="w-full py-3 md:py-2.5 bg-[#0D0B18] border border-[#2D2A3E] hover:border-slate-500/30 rounded-xl text-sm font-semibold text-slate-400 hover:text-slate-200 transition-colors"
             >
               Continue as Guest
             </button>

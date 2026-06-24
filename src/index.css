@@ -130,3 +130,54 @@ body {
   min-height: 101%;
   overscroll-behavior: contain;
 }
+
+/* ── Mobile-optimised layout ── */
+.mobile-layout {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mobile-layout input,
+.mobile-layout textarea {
+  font-size: 16px !important;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.mobile-layout button,
+.mobile-layout a {
+  touch-action: manipulation;
+}
+
+/* Larger touch targets for mobile toggles and interactive elements */
+.mobile-layout .toggle-hitarea {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Safe area spacing for notched phones */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .mobile-layout main {
+    padding-top: calc(env(safe-area-inset-top) + 56px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 56px);
+  }
+}
+
+/* Better scrollbar for mobile */
+.mobile-layout ::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Prevent text size adjustment on orientation change */
+.mobile-layout {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Smooth momentum scrolling */
+.mobile-layout main {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}

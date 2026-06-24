@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, ArrowLeft, ChevronRight, MessageCircle, User, ShieldAlert, BadgeCheck, ImagePlus } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { getConversations, getMessages, sendMessage, getProfile, sendMessageWithImage, uploadChatImage, sendTypingIndicator, getTypingStatus, markMessagesRead } from '../services/api'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { getConversations, getMessages, sendMessage, getProfile, sendMessageWithImage, uploadChatImage, sendTypingIndicator, getTypingStatus, markMessagesRead, getApiBase } from '../services/api'
 import type { Conversation, ChatMessage, PeopleUser } from '../types'
 import toast from 'react-hot-toast'
 
@@ -15,6 +16,7 @@ interface ChatViewProps {
 }
 
 export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
+  const isMobile = useIsMobile()
   const userData = useStore((s) => s.userData)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeChat, setActiveChat] = useState<string | null>(startChatUid || null)
@@ -193,16 +195,16 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
 
   if (activeChat) {
     return (
-      <div className="w-full max-w-2xl mx-auto px-5 pb-4 flex flex-col h-full">
+      <div className={`w-full ${isMobile ? 'px-3' : 'max-w-2xl mx-auto px-5'} pb-4 flex flex-col h-full`}>
         <div className="flex items-center gap-3 py-3 border-b border-white/5">
-          <button onClick={goBack} className="p-1 hover:bg-white/5 rounded-lg transition-colors">
+          <button onClick={goBack} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5 text-slate-400" />
           </button>
           {activeUser && (
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
+              <div className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
                 {activeUser.avatar_url ? (
-                  <img src={activeUser.avatar_url.startsWith('http') ? activeUser.avatar_url : `http://localhost:8000${activeUser.avatar_url}`} className="w-full h-full object-cover" alt="" />
+                  <img src={activeUser.avatar_url.startsWith('http') ? activeUser.avatar_url : `${getApiBase()}${activeUser.avatar_url}`} className="w-full h-full object-cover" alt="" />
                 ) : (
                   activeUser.display_name[0]
                 )}
@@ -243,7 +245,7 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
             return (
               <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className={`max-w-[75%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
+                  className={`max-w-[80%] md:max-w-[75%] px-3.5 py-2.5 md:px-3.5 md:py-2 rounded-2xl text-sm leading-relaxed ${
                     isMe
                       ? 'bg-[#7C5CFC] text-white rounded-br-md'
                       : 'bg-[#1E1B2E] border border-[#2D2A3E] text-slate-200 rounded-bl-md'
@@ -251,7 +253,7 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
                 >
                   {m.image_url && (
                     <img
-                      src={m.image_url.startsWith('http') ? m.image_url : `http://localhost:8000${m.image_url}`}
+                      src={m.image_url.startsWith('http') ? m.image_url : `${getApiBase()}${m.image_url}`}
                       className="max-w-full rounded-lg mb-1.5"
                       alt="Shared image"
                     />
@@ -272,9 +274,9 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
         <div className="flex gap-2 pt-2 border-t border-white/5">
           <button
             onClick={pickImage}
-            className="px-3 py-2.5 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl hover:bg-white/5 transition-colors shrink-0"
+            className="px-4 py-3 md:px-3 md:py-2.5 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl hover:bg-white/5 transition-colors shrink-0"
           >
-            <ImagePlus className="w-4 h-4 text-slate-400" />
+            <ImagePlus className="w-5 h-5 md:w-4 md:h-4 text-slate-400" />
           </button>
           <input
             ref={fileInputRef}
@@ -298,14 +300,14 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
             onChange={(e) => handleTyping(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="flex-1 px-4 py-2.5 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+            className="flex-1 px-4 py-3 md:px-4 md:py-2.5 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
           />
           <button
             onClick={handleSend}
             disabled={(!input.trim() && !pendingImage) || sending}
-            className="px-4 py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] disabled:opacity-40 rounded-xl transition-colors"
+            className="px-5 py-3 md:px-4 md:py-2.5 bg-[#7C5CFC] hover:bg-[#6D4FF2] disabled:opacity-40 rounded-xl transition-colors"
           >
-            <Send className="w-4 h-4 text-white" />
+            <Send className="w-5 h-5 md:w-4 md:h-4 text-white" />
           </button>
         </div>
       </div>
@@ -313,7 +315,7 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-5 pb-8 flex flex-col gap-4">
+    <div className={`w-full ${isMobile ? 'px-4' : 'max-w-2xl mx-auto px-5'} pb-8 flex flex-col gap-4`}>
       <h2 className="text-xl font-extrabold text-white">Messages</h2>
 
       {conversations.length === 0 && (
@@ -329,7 +331,7 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
           <button
             key={c.other_uid}
             onClick={() => selectChat(c.other_uid)}
-            className="w-full flex items-center gap-3 px-4 py-3 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl hover:bg-white/5 transition-colors text-left"
+            className="w-full flex items-center gap-3 px-4 py-4 md:py-3 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl hover:bg-white/5 transition-colors text-left"
           >
             <div className="relative shrink-0">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-sm font-bold text-white">

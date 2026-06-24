@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useStore } from '../store/useStore'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { motion } from 'framer-motion'
 import { Sparkles, Briefcase, MapPin, Link as LinkIcon, Trophy } from 'lucide-react'
 import AnimatedNumber from '../components/AnimatedNumber'
@@ -44,6 +45,7 @@ function CircularProgress({ pct, size = 40 }: { pct: number; size?: number }) {
 }
 
 export default function HomeView() {
+  const isMobile = useIsMobile()
   const userData = useStore((s) => s.userData)
   const setView = useStore((s) => s.setView)
   const displayName = userData?.displayName || 'Fouad'
@@ -70,31 +72,31 @@ export default function HomeView() {
   }, [subjects])
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-5 flex flex-col gap-5 pt-4">
+    <div className={`w-full ${isMobile ? 'px-4' : 'max-w-2xl mx-auto px-5'} flex flex-col gap-4 md:gap-5 pt-4`}>
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h2 className="text-3xl font-display font-extrabold text-gradient-gold tracking-tight text-balance leading-tight">
+        <h2 className="text-2xl md:text-3xl font-display font-extrabold text-gradient-gold tracking-tight text-balance leading-tight">
           Hey {displayName}
         </h2>
         <p className="text-sm text-slate-500 mt-1">Your opportunities, curated for today.</p>
       </motion.div>
 
       <motion.div
-        className="glass-card-strong rounded-2xl p-5 flex flex-col sm:flex-row gap-5 glow-purple"
+        className="glass-card-strong rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row gap-4 md:gap-5 glow-purple"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <div className="shrink-0 w-full sm:w-24 h-20 sm:h-24 rounded-xl bg-gradient-to-br from-[#7C5CFC]/20 to-[#6EE7B7]/10 border border-[#7C5CFC]/20 flex items-center justify-center">
-          <Trophy className="w-10 h-10 text-[#7C5CFC]" />
+        <div className="shrink-0 w-full sm:w-24 h-16 sm:h-24 rounded-xl bg-gradient-to-br from-[#7C5CFC]/20 to-[#6EE7B7]/10 border border-[#7C5CFC]/20 flex items-center justify-center">
+          <Trophy className="w-8 h-8 md:w-10 md:h-10 text-[#7C5CFC]" />
         </div>
         <div className="flex flex-col gap-2 flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="text-base font-display font-bold text-white">Progress Tracker</h3>
+              <h3 className="text-sm md:text-base font-display font-bold text-white">Progress Tracker</h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Level {userData?.level ?? 1} &middot; <AnimatedNumber value={xp} /> / {MAX_LEVEL_XP} XP
               </p>
@@ -133,11 +135,11 @@ export default function HomeView() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4, delay: 0.2 }}
       >
-        <h3 className="text-lg font-display font-bold text-white">Today's Picks</h3>
+        <h3 className="text-base md:text-lg font-display font-bold text-white">Today's Picks</h3>
         {picks.length > 0 && (
           <button
             onClick={() => setView('discover')}
-            className="text-xs font-semibold text-[#7C5CFC] hover:text-[#8D6CFF] transition-colors"
+            className="text-xs font-semibold text-[#7C5CFC] hover:text-[#8D6CFF] transition-colors min-h-[36px] flex items-center"
           >
             View all &rarr;
           </button>
@@ -145,19 +147,19 @@ export default function HomeView() {
       </motion.div>
 
       {picksLoading ? (
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5">
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 md:-mx-5 px-4 md:px-5">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="shrink-0 w-44 h-44 glass-card rounded-xl animate-pulse" />
+            <div key={i} className="shrink-0 w-40 md:w-44 h-40 md:h-44 glass-card rounded-xl animate-pulse" />
           ))}
         </div>
       ) : picks.length === 0 ? (
         <p className="text-sm text-slate-500">No picks right now. Head to Discover to find opportunities.</p>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 snap-x snap-mandatory scrollbar-none">
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 md:-mx-5 px-4 md:px-5 snap-x snap-mandatory scrollbar-none">
           {picks.map((pick) => (
             <motion.div
               key={pick.id}
-              className="snap-start shrink-0 w-44 glass-card rounded-xl p-4 flex flex-col gap-2 cursor-pointer transition-all duration-300"
+              className="snap-start shrink-0 w-40 md:w-44 glass-card rounded-xl p-4 flex flex-col gap-2 cursor-pointer transition-all duration-300"
               whileHover={{
                 y: -4,
                 borderColor: 'rgba(124, 92, 252, 0.3)',

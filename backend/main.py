@@ -22,7 +22,7 @@ except ImportError:
 from fastapi import FastAPI, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -66,7 +66,7 @@ app = FastAPI(
 )
 
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "dist"
-ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", f"http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173,app://.,http://localhost:8000,http://127.0.0.1:8000").split(",")
+ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", f"http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173,app://.,http://localhost:8000,http://127.0.0.1:8000,capacitor://localhost,http://localhost,file://,https://unipath-proxy.fouadazad1234.workers.dev").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -833,12 +833,30 @@ def health_check():
     }
 
 
+URL_FILE = Path(__file__).resolve().parent.parent / "public_url.txt"
+
+@app.get("/api/public-url")
+def get_public_url():
+    if URL_FILE.exists():
+        url = URL_FILE.read_text().strip()
+        return {"url": url}
+    return JSONResponse({"error": "No public URL available"}, status_code=404)
+
+
+APK_FILE = Path(__file__).resolve().parent.parent / "UniPath-v2.0.0-android.apk"
+
+@app.get("/api/download-apk")
+def download_apk():
+    if APK_FILE.exists():
+        return FileResponse(str(APK_FILE), media_type="application/vnd.android.package-archive", filename="UniPath-v2.0.0-android.apk")
+    return JSONResponse({"error": "APK not found"}, status_code=404)
+
+
 if FRONTEND_DIST.exists():
     @app.get("/")
     @app.get("/{path:path}")
     def serve_frontend(path: str = ""):
         if path.startswith("api/") or path.startswith("uploads/"):
-            from fastapi.responses import JSONResponse
             return JSONResponse({"error": "Not found"}, status_code=404)
         file = FRONTEND_DIST / "index.html"
         if file.exists():

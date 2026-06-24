@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, MapPin, Calendar, Navigation, ExternalLink, Compass, Sparkles, Globe } from 'lucide-react'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { searchLocalEvents } from '../services/searchService'
 import { searchOpportunities } from '../services/api'
 import type { LocalEvent } from '../types'
@@ -47,6 +48,7 @@ function openUrl(url: string) {
 }
 
 export default function ExploreView() {
+  const isMobile = useIsMobile()
   const [query, setQuery] = useState('')
   const [localEvents, setLocalEvents] = useState<LocalEvent[]>([])
   const [backendResults, setBackendResults] = useState<BackendSearchResult[]>([])
@@ -74,8 +76,12 @@ export default function ExploreView() {
       ])
 
       if (beResult) {
-        setBackendAvailable(true)
-        setBackendResults(beResult.results)
+        if (beResult.error) {
+          setBackendAvailable(false)
+        } else {
+          setBackendAvailable(true)
+          setBackendResults(beResult.results)
+        }
         if (window.electronAPI) {
           const snippets = (beResult.results || []).map(r => `[${r.title}] ${r.snippet}`).join('\n')
           window.electronAPI.generateAnswer(trimmed, snippets).then(resp => {
@@ -110,13 +116,12 @@ export default function ExploreView() {
   }, [query, doSearch])
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-5 pb-8">
+    <div className={`w-full ${isMobile ? 'px-4' : 'max-w-2xl mx-auto px-5'} pb-8`}>
       <div className="flex flex-col gap-1 mb-4">
-        <h2 className="text-2xl font-extrabold text-white tracking-tight">Explore</h2>
+        <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">Explore</h2>
         <p className="text-sm text-slate-400">Discover local events happening in Kathmandu Valley.</p>
       </div>
 
-      {/* Search Bar with Location Chip */}
       <div className="flex flex-col gap-2 mb-5">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -125,7 +130,7 @@ export default function ExploreView() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search events, workshops, hackathons..."
-            className="w-full pl-11 pr-4 py-3 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
+            className="w-full pl-11 pr-4 py-3 md:py-3 bg-[#1E1B2E] border border-[#2D2A3E] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#7C5CFC]/50 transition-colors"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -141,14 +146,12 @@ export default function ExploreView() {
         </div>
       </div>
 
-      {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-12">
           <div className="w-6 h-6 border-2 border-[#7C5CFC] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
-      {/* AI Answer */}
       {!loading && aiAnswer && (
         <div className="bg-gradient-to-br from-[#7C5CFC]/5 to-purple-600/5 border border-[#7C5CFC]/20 rounded-2xl p-5 mb-4">
           <div className="flex items-center gap-2 mb-3">
@@ -159,7 +162,6 @@ export default function ExploreView() {
         </div>
       )}
 
-      {/* Backend unavailable notice */}
       {!loading && !backendAvailable && query.trim() && (
         <div className="flex items-center gap-2 px-4 py-2 mb-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400">
           <Globe className="w-3.5 h-3.5 shrink-0" />
@@ -167,7 +169,6 @@ export default function ExploreView() {
         </div>
       )}
 
-      {/* Web Results from Backend */}
       {!loading && backendResults.length > 0 && (
         <div className="flex flex-col gap-3 mb-6">
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">Web Search Results</h4>
@@ -194,7 +195,6 @@ export default function ExploreView() {
         </div>
       )}
 
-      {/* Local Events */}
       {!loading && localEvents.length > 0 && (
         <div className="flex flex-col gap-3">
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
@@ -230,14 +230,14 @@ export default function ExploreView() {
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => openMaps(event.coordinates.lat, event.coordinates.lng)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-xs font-semibold text-sky-400 hover:border-sky-500/30 transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-3 md:px-3 md:py-2 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-xs font-semibold text-sky-400 hover:border-sky-500/30 transition-colors"
                   >
                     <Navigation className="w-3.5 h-3.5" />
                     Directions
                   </button>
                   <button
                     onClick={() => openUrl(event.sourceUrl)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-xs font-semibold text-slate-300 hover:border-[#7C5CFC]/30 transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-3 md:px-3 md:py-2 bg-[#0D0B18] border border-[#2D2A3E] rounded-xl text-xs font-semibold text-slate-300 hover:border-[#7C5CFC]/30 transition-colors"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     View Source
@@ -249,7 +249,6 @@ export default function ExploreView() {
         </div>
       )}
 
-      {/* Empty / No results */}
       {!loading && hasSearched && localEvents.length === 0 && backendResults.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-16 h-16 rounded-full bg-[#7C5CFC]/10 border border-[#7C5CFC]/20 flex items-center justify-center mb-4">
@@ -266,7 +265,6 @@ export default function ExploreView() {
         </div>
       )}
 
-      {/* Initial state (before any search) */}
       {!loading && !hasSearched && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-16 h-16 rounded-full bg-[#7C5CFC]/10 border border-[#7C5CFC]/20 flex items-center justify-center mb-4">
