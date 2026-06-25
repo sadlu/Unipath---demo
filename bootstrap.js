@@ -14,8 +14,11 @@ const ask = (q) => {
 }
 
 const PLATFORM = os.platform()
-const DIR = __dirname
-const IS_PKG = !!process.pkg  // running as standalone executable
+const IS_PKG = !!process.pkg
+const INSTALL_DIR = PLATFORM === 'win32'
+  ? path.join(process.env.LOCALAPPDATA || process.env.USERPROFILE || os.homedir(), 'UniPath')
+  : path.join(os.homedir(), '.unipath')
+const REPO_ZIP = 'https://github.com/sadlu/Unipath---demo/archive/refs/heads/main.zip'
 
 const BOLD = '\x1b[1m'
 const GREEN = '\x1b[32m'
@@ -45,13 +48,14 @@ function runCapture(cmd, args) {
   }
 }
 
+function hasGit() {
+  try { execSync('git --version', { stdio: 'pipe' }); return true }
+  catch { return false }
+}
+
 // ── Checks ──
 
 async function checkNode() {
-  if (IS_PKG) {
-    ok('[1/5] Node.js bundled with setup executable')
-    return true
-  }
   info('[1/5] Checking Node.js ...')
   const ver = runCapture('node', ['--version']).replace(/v/g, '')
   if (!ver) {
@@ -68,10 +72,6 @@ async function checkNode() {
 }
 
 async function checkNpm() {
-  if (IS_PKG) {
-    ok('[2/5] npm bundled with setup executable')
-    return true
-  }
   info('[2/5] Checking npm ...')
   const ver = runCapture('npm', ['--version'])
   if (ver) {
@@ -82,136 +82,134 @@ async function checkNpm() {
   return false
 }
 
-async function checkPython() {
-  info('[3/5] Checking Python ...')
-  let ver = runCapture('python3', ['--version']).replace(/^Python /, '')
-  let cmd = 'python3'
-  if (!ver) {
-    ver = runCapture('python', ['--version']).replace(/^Python /, '')
-    cmd = 'python'
-  }
-  if (!ver) {
-    warn('  Python not found')
-    return { ok: false, cmd: '' }
-  }
-  const parts = ver.split('.').map(Number)
-  if (parts[0] >= 3 && parts[1] >= 10) {
-    ok(`  Python ${ver} found (${cmd})`)
-    return { ok: true, cmd }
-  }
-  warn(`  Python ${ver} found, but >= 3.10 required`)
-  return { ok: false, cmd }
-}
-
-async function checkVenv(pyCmd) {
-  info('[4/5] Checking Python venv ...')
-  if (!pyCmd) {
-    warn('  Cannot check venv without Python')
-    return false
-  }
-  try {
-    execSync(`${pyCmd} -c "import venv"`, { stdio: 'pipe' })
-    ok('  venv module available')
-    return true
-  } catch {
-    warn('  venv module not available')
-    return false
-  }
-}
-
 // ── Installers ──
 
-async function installPythonWindows() {
-  // Try winget first (built into Windows 10/11)
-  try {
-    execSync('where winget', { stdio: 'pipe' })
-    warn('\n  Python >= 3.10 is required. Install via winget?')
-    const a = await ask('  Proceed? [Y/n] ')
-    if (a.toLowerCase() !== 'n') {
-      info('  Installing Python via winget ...')
-      await run('winget', ['install', '-e', '--id', 'Python.Python.3.12', '--accept-source-agreements'])
-      info('\n  Python installed. Please re-run this setup.')
-      return true
-    }
-  } catch {
-    // winget not available, proceed to manual download
-  }
-
-  warn('\n  Python >= 3.10 is required. Download automatically?')
-  const a = await ask('  Download Python 3.12? [Y/n] ')
+async function installNodeWindows() {
+  warn('\n  Node.js >= 18 is required. Install now?')
+  const a = await ask('  Download and install Node.js? [Y/n] ')
   if (a.toLowerCase() === 'n') {
-    fail('  Please install Python from https://www.python.org/downloads/ and re-run setup')
+    fail('  Please install Node.js from https://nodejs.org and re-run setup')
     return false
   }
-  info('  Downloading Python 3.12 for Windows ...')
-  const url = 'https://www.python.org/ftp/python/3.12.5/python-3.12.5-amd64.exe'
-  const dest = path.join(os.tmpdir(), 'python-installer.exe')
+  info('  Downloading Node.js 20 LTS for Windows ...')
+  const url = 'https://nodejs.org/dist/v20.19.0/node-v20.19.0-x64.msi'
+  const dest = path.join(os.tmpdir(), 'node-installer.msi')
   await run('curl', ['-Lo', dest, url])
-  info('  Running installer ...')
-  await run(dest, ['/quiet', 'InstallAllUsers=1', 'PrependPath=1', 'Include_test=0'])
-  info('  Python installed. Please re-run this setup.')
+  info('  Running Node.js installer ...')
+  await run('msiexec', ['/i', dest, '/quiet', '/norestart'])
+  info('  Node.js installed. It may take a moment to be available in PATH.')
+  info('  Please re-run this setup after installation completes.')
   return true
 }
 
-async function installPythonLinux() {
-  const pm = detectPkgManager()
-  if (!pm) {
-    fail('  No known package manager. Install Python from https://www.python.org/downloads/')
-    return false
+// ── Download Source ──
+
+async function downloadSource() {
+  info('\n[3/5] Downloading UniPath source code ...')
+
+  fs.mkdirSync(INSTALL_DIR, { recursive: true })
+
+  if (fs.existsSync(path.join(INSTALL_DIR, 'package.json'))) {
+    ok('  Source already exists at ' + INSTALL_DIR)
+    return true
   }
-  warn(`  Install Python via ${pm}?`)
-  const a = await ask('  Proceed? [Y/n] ')
-  if (a.toLowerCase() === 'n') return false
-  const cmds = {
-    apt: 'sudo apt update && sudo apt install -y python3 python3-pip python3-venv',
-    'apt-get': 'sudo apt-get update && sudo apt-get install -y python3 python3-pip python3-venv',
-    dnf: 'sudo dnf install -y python3 python3-pip python3-virtualenv',
-    yum: 'sudo yum install -y python3 python3-pip python3-virtualenv',
-    pacman: 'sudo pacman -S --noconfirm python python-pip python-virtualenv',
-    brew: 'brew install python',
-    zypper: 'sudo zypper install -y python3 python3-pip python3-virtualenv',
+
+  // Try git clone first (faster, smaller)
+  if (hasGit()) {
+    info('  Cloning repository via git ...')
+    try {
+      await run('git', ['clone', 'https://github.com/sadlu/Unipath---demo.git', INSTALL_DIR])
+      ok('  Repository cloned successfully')
+      return true
+    } catch (e) {
+      warn('  Git clone failed, falling back to zip download ...')
+    }
   }
-  await run('sh', ['-c', cmds[pm] || `echo "Install Python manually via ${pm}"`])
-  return true
+
+  // Fallback: download zip
+  info('  Downloading zip archive from GitHub ...')
+  const zipPath = path.join(os.tmpdir(), 'unipath-main.zip')
+  await run('curl', ['-Lo', zipPath, REPO_ZIP])
+
+  info('  Extracting ...')
+
+  if (PLATFORM === 'win32') {
+    const psScript = `
+      $zip = '${zipPath.replace(/'/g, "''")}'
+      $dest = '${INSTALL_DIR.replace(/'/g, "''")}'
+      $extract = Join-Path $env:TEMP 'unipath-extract'
+      if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+      New-Item -ItemType Directory -Path $extract -Force | Out-Null
+      Expand-Archive -Path $zip -DestinationPath $extract -Force
+      $src = Get-ChildItem $extract | Where-Object { $_.Name -like 'Unipath*' } | Select-Object -First 1
+      if ($src) {
+        Get-ChildItem $src.FullName | Move-Item -Destination $dest -Force
+      }
+    `
+    const psFile = path.join(os.tmpdir(), 'extract.ps1')
+    fs.writeFileSync(psFile, psScript)
+    await run('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', psFile])
+    try { fs.rmSync(psFile) } catch {}
+  } else {
+    const extractDir = path.join(os.tmpdir(), 'unipath-extract')
+    if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true })
+    fs.mkdirSync(extractDir, { recursive: true })
+    await run('tar', ['-xf', zipPath, '-C', extractDir])
+    const items = fs.readdirSync(extractDir)
+    const srcDir = items.find(i => i.startsWith('Unipath---demo'))
+    if (!srcDir) { fail('  Could not find source in extracted archive'); return false }
+    await run('cp', ['-r', path.join(extractDir, srcDir, '*'), INSTALL_DIR])
+    try { fs.rmSync(extractDir, { recursive: true }) } catch {}
+  }
+
+  try { fs.rmSync(zipPath) } catch {}
+
+  if (fs.existsSync(path.join(INSTALL_DIR, 'package.json'))) {
+    ok('  Source downloaded successfully')
+    return true
+  }
+  fail('  Failed to download source code')
+  return false
 }
 
-function detectPkgManager() {
-  const progs = ['apt', 'apt-get', 'dnf', 'yum', 'pacman', 'zypper', 'brew']
-  for (const p of progs) {
-    try { execSync(`which ${p}`, { stdio: 'pipe' }); return p } catch {}
-  }
-  return null
-}
+// ── Setup & Launch ──
 
-// ── Setup ──
-
-async function setupProject() {
-  info('\n[5/5] Installing frontend dependencies (npm install) ...')
-  await run('npm', ['install'], { cwd: DIR })
-
-  info('\n[5/5] Setting up Python backend ...')
-  const pyCmd = runCapture('python3', ['--version']) ? 'python3' : 'python'
-  const venvDir = path.join(DIR, 'backend', '.venv')
-  if (!fs.existsSync(venvDir)) {
-    await run(pyCmd, ['-m', 'venv', path.join(DIR, 'backend', '.venv')])
-  }
-
-  const pip = PLATFORM === 'win32'
-    ? path.join(venvDir, 'Scripts', 'pip.exe')
-    : path.join(venvDir, 'bin', 'pip')
-  await run(`"${pip}"`, ['install', '-r', path.join(DIR, 'backend', 'requirements.txt')])
+async function setupAndLaunch() {
+  info('\n[4/5] Installing dependencies ...')
+  await run('npm', ['install'], { cwd: INSTALL_DIR })
 
   info('\n[5/5] Building the app ...')
-  await run('npm', ['run', 'build'], { cwd: DIR })
+  await run('npm', ['run', 'build'], { cwd: INSTALL_DIR })
 
-  ok('\n=================================')
+  ok('\n================================================')
   ok('  UniPath setup complete!')
-  ok('  Run it with:  npm start')
-  ok('=================================')
+  ok(`  Installed at: ${INSTALL_DIR}`)
+  ok('================================================')
+
+  // Create desktop shortcut on Windows
+  if (PLATFORM === 'win32') {
+    try {
+      const desktop = path.join(os.homedir(), 'Desktop')
+      const psScript = `
+        $WS = New-Object -ComObject WScript.Shell
+        $SC = $WS.CreateShortcut("${desktop}\\UniPath.lnk")
+        $SC.TargetPath = "cmd.exe"
+        $SC.Arguments = "/c cd /d ${INSTALL_DIR} && npm start"
+        $SC.WorkingDirectory = "${INSTALL_DIR}"
+        $SC.Description = "UniPath - Career Coach App"
+        $SC.Save()
+      `
+      fs.writeFileSync(path.join(os.tmpdir(), 'shortcut.ps1'), psScript)
+      await run('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(os.tmpdir(), 'shortcut.ps1')])
+      ok('  Desktop shortcut created')
+    } catch (e) {
+      warn('  Could not create desktop shortcut: ' + e.message)
+    }
+  }
 
   const launch = await ask('\nLaunch UniPath now? [Y/n] ')
   if (launch.toLowerCase() !== 'n') {
-    await run('npm', ['start'], { cwd: DIR })
+    await run('npm', ['start'], { cwd: INSTALL_DIR })
   }
 }
 
@@ -226,33 +224,36 @@ async function main() {
   | |__| | | | | | |_| | (_| | |   | | | | | .__/
    \\____/|_| |_|_|\\__,_|\\__,_|_|   |_| |_|_|_|
   `)
-  console.log(`${BOLD}UniPath — Setup${NC}\n`)
+  console.log(`${BOLD}UniPath — Windows Installer${NC}\n`)
 
-  const nodeOk = await checkNode()
-  await checkNpm()
-  const py = await checkPython()
-  if (py.ok) await checkVenv(py.cmd)
+  info(`Install directory: ${INSTALL_DIR}\n`)
 
-  // Install missing deps (skip Node.js if running as pkg — it's bundled)
-  const needNode = !nodeOk && !IS_PKG
-  const needPy = !py.ok
-
-  if (needNode || needPy) {
-    warn('\nSome dependencies are missing.')
-    const proceed = await ask('Attempt to install missing dependencies automatically? [Y/n] ')
-    if (proceed.toLowerCase() !== 'n') {
-      if (needPy) {
-        if (PLATFORM === 'win32') await installPythonWindows()
-        else await installPythonLinux()
+  if (!await checkNode()) {
+    if (PLATFORM === 'win32') {
+      const installed = await installNodeWindows()
+      if (!installed) {
+        await pause()
+        process.exit(1)
       }
+      // Node was just installed; re-run needed for PATH refresh
+      await pause()
+      process.exit(0)
     } else {
-      fail('Please install missing dependencies manually and re-run setup.')
-      rl.close()
-      return
+      fail('Node.js >= 18 is required. Install it from https://nodejs.org and re-run.')
+      await pause()
+      process.exit(1)
     }
   }
 
-  await setupProject()
+  await checkNpm()
+
+  if (!await downloadSource()) {
+    await pause()
+    process.exit(1)
+  }
+
+  await setupAndLaunch()
+
   if (rl) rl.close()
 }
 
@@ -267,10 +268,6 @@ main()
   .then(pause)
   .catch(async (err) => {
     fail(`\nSetup failed: ${err.message}`)
-    if (IS_PKG) {
-      fail('\nIf the issue is with Python installation, try installing Python 3.12 manually')
-      fail('from https://www.python.org/downloads/ and then re-run this setup.')
-    }
     await pause()
     process.exit(1)
   })
