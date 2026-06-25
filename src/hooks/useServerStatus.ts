@@ -15,8 +15,11 @@ export function useServerStatus() {
       return
     }
     const start = performance.now()
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 5000)
     try {
-      const res = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(5000) })
+      const res = await fetch(`${base}/api/health`, { signal: controller.signal })
+      clearTimeout(timer)
       if (res.ok) {
         setStatus('online')
         setLatency(Math.round(performance.now() - start))
@@ -24,6 +27,7 @@ export function useServerStatus() {
         setStatus('offline')
       }
     } catch {
+      clearTimeout(timer)
       setStatus('offline')
     }
   }

@@ -63,65 +63,85 @@ function findVenvPython(): string | null {
   return null
 }
 
+const BACKEND_PORT = 8000
+const BACKEND_URL = `http://localhost:${BACKEND_PORT}`
+
 function startBackend(): Promise<void> {
   return new Promise((resolve) => {
     const dataDir = app.getPath('userData')
     const env = { ...process.env, UNIPATH_DATA_DIR: dataDir }
     let started = false
+    let attempts = 0
+    const maxAttempts = 3
 
-    if (app.isPackaged && BACKEND_BINARY && fs.existsSync(BACKEND_BINARY)) {
-      backendProcess = spawn(BACKEND_BINARY, [], {
-        cwd: dataDir,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env,
+    function tryStart() {
+      if (attempts >= maxAttempts) {
+        console.warn('Backend failed to start after max attempts')
+        started = true
+        resolve()
+        return
+      }
+      attempts++
+
+      if (app.isPackaged && BACKEND_BINARY && fs.existsSync(BACKEND_BINARY)) {
+        backendProcess = spawn(BACKEND_BINARY, [], {
+          cwd: dataDir,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env,
+        })
+      } else {
+        const python = findVenvPython() || findPython()
+        const args = ['-m', 'uvicorn', 'backend.main:app', '--host', '0.0.0.0', '--port', String(BACKEND_PORT)]
+        backendProcess = spawn(python, args, {
+          cwd: PROJECT_ROOT,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env,
+        })
+      }
+
+      backendProcess.stdout?.on('data', (data: Buffer) => {
+        const text = data.toString()
+        if (!started && text.includes('Uvicorn running on')) {
+          started = true
+          console.log('Backend started successfully')
+          resolve()
+        }
       })
-    } else {
-      const python = findVenvPython() || findPython()
-      const args = ['-m', 'uvicorn', 'backend.main:app', '--host', '0.0.0.0', '--port', '8000']
-      backendProcess = spawn(python, args, {
-        cwd: PROJECT_ROOT,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env,
+
+      backendProcess.stderr?.on('data', (data: Buffer) => {
+        const text = data.toString()
+        if (!started && text.includes('Uvicorn running on')) {
+          started = true
+          console.log('Backend started successfully')
+          resolve()
+        }
+      })
+
+      backendProcess.on('error', () => {
+        if (!started) {
+          console.warn(`Backend attempt ${attempts} failed, retrying...`)
+          backendProcess = null
+          setTimeout(tryStart, 2000)
+        }
+      })
+
+      backendProcess.on('exit', (code) => {
+        backendProcess = null
+        if (!started) {
+          console.warn(`Backend exited with code ${code}, retrying...`)
+          setTimeout(tryStart, 2000)
+        }
       })
     }
 
-    backendProcess.stdout?.on('data', (data: Buffer) => {
-      const text = data.toString()
-      if (!started && text.includes('Uvicorn running on')) {
-        started = true
-        resolve()
-      }
-    })
-
-    backendProcess.stderr?.on('data', (data: Buffer) => {
-      const text = data.toString()
-      if (!started && text.includes('Uvicorn running on')) {
-        started = true
-        resolve()
-      }
-    })
-
-    backendProcess.on('error', () => {
-      if (!started) {
-        started = true
-        resolve()
-      }
-    })
-
-    backendProcess.on('exit', () => {
-      backendProcess = null
-      if (!started) {
-        started = true
-        resolve()
-      }
-    })
+    tryStart()
 
     setTimeout(() => {
       if (!started) {
         started = true
         resolve()
       }
-    }, 12000)
+    }, 25000)
   })
 }
 
@@ -151,6 +171,17 @@ function createWindow() {
     win.loadFile(path.join(process.env.DIST!, 'index.html'))
   }
 }
+
+ipcMain.handle('get-backend-url', () => BACKEND_URL)
+
+ipcMain.handle('get-backend-status', async () => {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/health`, { signal: AbortSignal.timeout(3000) })
+    return { running: res.ok }
+  } catch {
+    return { running: false }
+  }
+})
 
 ipcMain.handle('select-image', async () => {
   const { dialog } = await import('electron')
@@ -251,5 +282,21 @@ app.on('activate', () => {
 app.whenReady().then(async () => {
   await startBackend()
   createWindow()
+  // Notify renderer when backend is ready
+  if (win) {
+    win.webContents.on('did-finish-load', async () => {
+      const start = Date.now()
+      while (Date.now() - start < 15000) {
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/health`, { signal: AbortSignal.timeout(2000) })
+          if (res.ok) {
+            win?.webContents.send('backend-ready', BACKEND_URL)
+            break
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+    })
+  }
   loadModel().catch((err) => console.error('Failed to load AI model:', err))
 })

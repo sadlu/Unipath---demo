@@ -20,7 +20,7 @@ import ConfettiOverlay from './components/ConfettiOverlay'
 import TutorialOverlay from './components/TutorialOverlay'
 import CosmicBackground from './components/CosmicBackground'
 
-import { initPeopleUser } from './services/api'
+import { initPeopleUser, setApiBase } from './services/api'
 
 export default function App() {
   const isMobile = useIsMobile()
@@ -30,6 +30,20 @@ export default function App() {
   const preferences = useStore((s) => s.preferences)
   const [chatTargetUid, setChatTargetUid] = useState<string | undefined>(undefined)
   const [peopleInitialized, setPeopleInitialized] = useState(false)
+
+  useEffect(() => {
+    const api = (window as any).electronAPI
+    if (api?.getBackendUrl) {
+      api.getBackendUrl().then((url: string) => {
+        if (url) setApiBase(url)
+      })
+    }
+    if (api?.onBackendReady) {
+      api.onBackendReady((url: string) => {
+        setApiBase(url)
+      })
+    }
+  }, [])
 
   useEffect(() => {
     const token = localStorage.getItem('unipath_auth_token')

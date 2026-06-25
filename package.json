@@ -16,6 +16,7 @@
     "start": "electron .",
     "preview": "vite preview",
     "build:backend": "python scripts/build_backend.py",
+    "build:backend:bash": "bash scripts/build-backend.sh",
     "dist:full": "npm run build && npm run build:backend && electron-builder --publish=never",
     "dist:linux": "npm run build && npm run build:backend && electron-builder --linux --publish=never",
     "dist:win": "npm run build && electron-builder --win --publish=never",
@@ -32,24 +33,37 @@
       "dist-electron/**/*",
       "package.json"
     ],
-    "extraResources": [],
+    "extraResources": [
+      {
+        "from": "dist-backend",
+        "to": "backend-bin",
+        "filter": ["**/*"]
+      }
+    ],
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
+      "icon": "build/icon-512.png",
       "category": "Education"
     },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "build/icon-512.png"
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "category": "public.app-category.education"
+      "icon": "build/icon-512.png",
+      "category": "public.app-category.education",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": false
     },
     "nsis": {
       "oneClick": true,

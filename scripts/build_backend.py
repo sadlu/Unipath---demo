@@ -15,7 +15,19 @@ BUILD_DIR = ROOT / "dist-backend"
 ENTRY_POINT = ROOT / "backend" / "server.py"
 
 
+def ensure_pyinstaller():
+    try:
+        import PyInstaller
+    except ImportError:
+        print("==> Installing PyInstaller...")
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "pyinstaller"]
+        )
+
+
 def main():
+    ensure_pyinstaller()
+
     print(f"==> Building {APP_NAME} with PyInstaller...")
     print(f"    Entry point: {ENTRY_POINT}")
     print(f"    Output dir:  {BUILD_DIR}")
@@ -30,12 +42,15 @@ def main():
         spec_dir.mkdir()
 
         backend_dir = ROOT / "backend"
+        separator = ";" if sys.platform == "win32" else ":"
 
         add_data = []
         for f in ["config.py", "database.py", "search_service.py", "llm_service.py",
                    "pipeline.py", "local_index.py", "email_service.py", "__init__.py",
-                   "main.py"]:
-            add_data.append(f"{backend_dir / f}:backend")
+                   "main.py", ".env"]:
+            src = backend_dir / f
+            if src.exists():
+                add_data.append(f"{src}{separator}backend")
 
         hidden_imports = [
             "uvicorn", "uvicorn.logging", "uvicorn.loops.auto",

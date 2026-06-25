@@ -10,4 +10,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectImage: () => ipcRenderer.invoke('select-image'),
   showNotification: (title: string, body: string) =>
     ipcRenderer.invoke('show-notification', { title, body }),
+  getBackendUrl: () => ipcRenderer.invoke('get-backend-url'),
+  getBackendStatus: () => ipcRenderer.invoke('get-backend-status'),
+  onBackendReady: (callback: (url: string) => void) => {
+    ipcRenderer.on('backend-ready', (_event, url: string) => callback(url))
+  },
 })

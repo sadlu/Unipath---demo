@@ -1,12 +1,23 @@
 import type { PeopleUser, Conversation, ChatMessage } from '../types'
 
-const DEFAULT_PROD_URL = 'https://unipath-proxy.fouadazad1234.workers.dev'
+const REMOTE_FALLBACK = 'https://unipath-app.fly.dev'
+
+let _customBase: string | null = null
+
+export function setApiBase(url: string) {
+  _customBase = url
+}
 
 export function getApiBase(): string {
-  if (import.meta.env.PROD) return DEFAULT_PROD_URL
+  if (_customBase) return _customBase
   const envUrl = import.meta.env.VITE_API_URL
   if (envUrl) return envUrl
+  if (import.meta.env.PROD && window.location.protocol !== 'file:') return window.location.origin
   return 'http://localhost:8000'
+}
+
+export function getRemoteFallbackBase(): string {
+  return _customBase || import.meta.env.VITE_API_URL || REMOTE_FALLBACK
 }
 
 export interface BackendSearchResult {
@@ -340,13 +351,12 @@ export function clearRefreshToken() {
 
 export async function authRefresh(refreshToken: string): Promise<{ ok: boolean; token?: string; refresh_token?: string; error?: string }> {
   try {
-    const res = await fetch(`${getApiBase()}/api/auth/refresh`, {
+    return await tryFetchWithFallback('/api/auth/refresh', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
       signal: AbortSignal.timeout(15_000),
     })
-    return res.json()
   } catch { return { ok: false, error: 'Server unreachable' } }
 }
 
@@ -354,46 +364,66 @@ export async function authRegister(
   uid: string, displayName: string, password: string, subjects?: string[],
 ): Promise<{ ok: boolean; token?: string; refresh_token?: string; user?: AuthUserData; error?: string }> {
   try {
-    const res = await fetch(`${getApiBase()}/api/auth/register`, {
+    return await tryFetchWithFallback('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid, display_name: displayName, password, subjects: subjects || [] }),
       signal: AbortSignal.timeout(20_000),
     })
-    return res.json()
   } catch (e: any) {
-    const msg = e.name === 'TimeoutError' || e.name === 'AbortError'
-      ? 'Server not responding — check your internet connection or try again later.'
-      : (e.message || 'Server unreachable')
-    return { ok: false, error: msg }
+    return { ok: false, error: e.message || 'Server unreachable' }
   }
+}
+
+async function tryFetchWithFallback(
+  path: string,
+  init: RequestInit,
+  retries = 1,
+): Promise<{ ok: boolean; token?: string; refresh_token?: string; user?: AuthUserData; error?: string }> {
+  const bases = [getApiBase(), getRemoteFallbackBase()]
+  const seen = new Set<string>()
+  for (const base of bases) {
+    if (seen.has(base)) continue
+    seen.add(base)
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch(`${base}${path}`, {
+          ...init,
+          signal: init.signal || AbortSignal.timeout(20_000),
+        })
+        const text = await res.text()
+        const data = JSON.parse(text)
+        if (data.ok !== undefined) return data
+      } catch {
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, 1000))
+        }
+      }
+    }
+  }
+  return { ok: false, error: 'Server not responding — check your internet connection or try again later.' }
 }
 
 export async function authLogin(
   uid: string, password: string,
 ): Promise<{ ok: boolean; token?: string; refresh_token?: string; user?: AuthUserData; error?: string }> {
   try {
-    const res = await fetch(`${getApiBase()}/api/auth/login`, {
+    return await tryFetchWithFallback('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid, password }),
       signal: AbortSignal.timeout(20_000),
     })
-    return res.json()
   } catch (e: any) {
-    const msg = e.name === 'TimeoutError' || e.name === 'AbortError'
-      ? 'Server not responding — check your internet connection or try again later.'
-      : (e.message || 'Server unreachable')
-    return { ok: false, error: msg }
+    return { ok: false, error: e.message || 'Server unreachable' }
   }
 }
 
 export async function authMe(token: string): Promise<{ ok: boolean; user?: AuthUserData; error?: string }> {
   try {
-    const res = await fetch(`${getApiBase()}/api/auth/me?token=${encodeURIComponent(token)}`, {
+    return await tryFetchWithFallback(`/api/auth/me?token=${encodeURIComponent(token)}`, {
       signal: AbortSignal.timeout(20_000),
     })
-    return res.json()
   } catch { return { ok: false, error: 'Server unreachable' } }
 }
 
@@ -409,13 +439,12 @@ export async function authChangePassword(
   token: string, currentPassword: string, newPassword: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${getApiBase()}/api/auth/change-password`, {
+    return await tryFetchWithFallback('/api/auth/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, current_password: currentPassword, new_password: newPassword }),
       signal: AbortSignal.timeout(15_000),
     })
-    return res.json()
   } catch { return { ok: false, error: 'Server unreachable' } }
 }
 

@@ -30,6 +30,7 @@ export default function LoginScreen() {
   const [displayName, setDisplayName] = useState('')
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([])
   const [showPassword, setShowPassword] = useState(false)
+  const serverStatus = useServerStatus()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -105,7 +106,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className={`w-full ${isMobile ? 'min-h-[100dvh] overflow-y-auto' : 'min-h-screen'} bg-[#13111C] flex ${isMobile ? 'flex-col' : 'items-center justify-center'} p-4 md:p-6 relative`}>
+    <div className={`w-full ${isMobile ? 'h-screen overflow-y-auto' : 'min-h-screen'} bg-[#13111C] flex ${isMobile ? 'flex-col' : 'items-center justify-center'} p-4 md:p-6 relative`}>
       <motion.div
         className="fixed inset-0 pointer-events-none"
         animate={{
@@ -183,6 +184,29 @@ export default function LoginScreen() {
               </span>
             </motion.button>
           </div>
+
+          <motion.button
+            type="button"
+            onClick={() => serverStatus.status !== 'checking' && serverStatus.check()}
+            className={`flex items-center justify-center gap-2 mb-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {serverStatus.status === 'checking' ? (
+              <RefreshCw className="w-3 h-3 text-slate-500 animate-spin" />
+            ) : serverStatus.status === 'online' ? (
+              <Wifi className="w-3 h-3 text-emerald-400" />
+            ) : (
+              <WifiOff className="w-3 h-3 text-rose-400" />
+            )}
+            <span className={serverStatus.status === 'online' ? 'text-emerald-400' : serverStatus.status === 'offline' ? 'text-rose-400' : 'text-slate-500'}>
+              {serverStatus.status === 'checking' ? 'Checking server...' :
+               serverStatus.status === 'online' ? `Server connected (${serverStatus.latency}ms)` :
+               'Tap to retry'}
+            </span>
+          </motion.button>
 
           <form onSubmit={handleSubmit}>
             <AnimatePresence mode="wait">
