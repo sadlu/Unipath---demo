@@ -6,8 +6,12 @@ const fs = require('fs')
 const { spawn, execSync } = require('child_process')
 const readline = require('readline')
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-const ask = (q) => new Promise((r) => rl.question(q, r))
+const IS_INTERACTIVE = process.stdin.isTTY
+const rl = IS_INTERACTIVE ? readline.createInterface({ input: process.stdin, output: process.stdout }) : null
+const ask = (q) => {
+  if (!IS_INTERACTIVE) return Promise.resolve('y')
+  return new Promise((r) => rl.question(q, r))
+}
 
 const PLATFORM = os.platform()
 const DIR = __dirname
@@ -249,7 +253,7 @@ async function main() {
   }
 
   await setupProject()
-  rl.close()
+  if (rl) rl.close()
 }
 
 main().catch((err) => {
