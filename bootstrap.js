@@ -256,11 +256,21 @@ async function main() {
   if (rl) rl.close()
 }
 
-main().catch((err) => {
-  fail(`\nSetup failed: ${err.message}`)
-  if (IS_PKG) {
-    fail('\nIf the issue is with Python installation, try installing Python 3.12 manually')
-    fail('from https://www.python.org/downloads/ and then re-run this setup.')
+async function pause() {
+  if (!IS_INTERACTIVE && IS_PKG) {
+    console.log('\nClosing in 10 seconds...')
+    await new Promise(r => setTimeout(r, 10000))
   }
-  process.exit(1)
-})
+}
+
+main()
+  .then(pause)
+  .catch(async (err) => {
+    fail(`\nSetup failed: ${err.message}`)
+    if (IS_PKG) {
+      fail('\nIf the issue is with Python installation, try installing Python 3.12 manually')
+      fail('from https://www.python.org/downloads/ and then re-run this setup.')
+    }
+    await pause()
+    process.exit(1)
+  })
