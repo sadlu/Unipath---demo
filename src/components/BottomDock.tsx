@@ -80,7 +80,7 @@ export default function BottomDock() {
                 />
               )}
               <Icon
-                className={`relative z-10 w-4.5 h-4.5 transition-all duration-200 ${
+                className={`relative z-10 w-5 h-5 transition-all duration-200 ${
                   isActive
                     ? 'text-[#7C5CFC] drop-shadow-[0_0_8px_rgba(124,92,252,0.5)]'
                     : 'text-slate-500'

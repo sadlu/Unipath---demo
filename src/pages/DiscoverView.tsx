@@ -207,11 +207,11 @@ export default function DiscoverView() {
             <motion.div
               className="absolute inset-0 rounded-3xl flex items-center justify-center z-20 pointer-events-none"
               style={{ background: 'linear-gradient(135deg, rgba(244,63,94,0.18), rgba(244,63,94,0.06))' }}
-              animate={{ opacity: Math.min(Math.abs(dragX), 200) / 200 }}
+              animate={{ opacity: dragX < 0 ? Math.min(-dragX, 200) / 200 : 0 }}
             >
               <motion.span
                 className="text-3xl font-black text-rose-400 drop-shadow-xl"
-                animate={{ scale: Math.min(Math.abs(dragX), 120) / 120 }}
+                animate={{ scale: dragX < 0 ? Math.min(-dragX, 120) / 120 : 0 }}
               >
                 ✕ Skip
               </motion.span>
@@ -220,11 +220,11 @@ export default function DiscoverView() {
             <motion.div
               className="absolute inset-0 rounded-3xl flex items-center justify-center z-20 pointer-events-none"
               style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.18), rgba(52,211,153,0.06))' }}
-              animate={{ opacity: Math.min(Math.abs(dragX), 200) / 200 }}
+              animate={{ opacity: dragX > 0 ? Math.min(dragX, 200) / 200 : 0 }}
             >
               <motion.span
                 className="text-3xl font-black text-emerald-400 drop-shadow-xl"
-                animate={{ scale: Math.min(Math.abs(dragX), 120) / 120 }}
+                animate={{ scale: dragX > 0 ? Math.min(dragX, 120) / 120 : 0 }}
               >
                 ♥ Apply
               </motion.span>

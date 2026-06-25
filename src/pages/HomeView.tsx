@@ -70,18 +70,17 @@ export default function HomeView() {
 
   const [picks, setPicks] = useState<DiscoveredOpportunity[]>([])
   const [picksLoading, setPicksLoading] = useState(true)
-  const fetched = useRef(false)
 
   useEffect(() => {
-    if (fetched.current) return
-    fetched.current = true
+    let cancelled = false
     setPicksLoading(true)
     discoverOpportunities(subjects, 12)
       .then((data) => {
-        if (!data.error && data.opportunities.length > 0) setPicks(data.opportunities.slice(0, 8))
+        if (!cancelled && !data.error && data.opportunities.length > 0) setPicks(data.opportunities.slice(0, 8))
       })
       .catch(() => {})
-      .finally(() => setPicksLoading(false))
+      .finally(() => { if (!cancelled) setPicksLoading(false) })
+    return () => { cancelled = true }
   }, [subjects])
 
   return (

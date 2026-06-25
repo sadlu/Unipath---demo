@@ -175,6 +175,8 @@ export default function SettingsView() {
 
   const [serverTesting, setServerTesting] = useState(false)
   const [serverStatus, setServerStatus] = useState<'unknown' | 'online' | 'offline'>('unknown')
+  const [showServerUrlEdit, setShowServerUrlEdit] = useState(false)
+  const [editServerUrl, setEditServerUrl] = useState('')
   const serverUrl = getApiBase()
 
   useEffect(() => {

@@ -11,13 +11,14 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "start": "electron .",
     "preview": "vite preview",
     "build:backend": "python scripts/build_backend.py",
-    "dist": "npm run build && npm run build:backend && electron-builder --publish=never",
+    "dist:full": "npm run build && npm run build:backend && electron-builder --publish=never",
     "dist:linux": "npm run build && npm run build:backend && electron-builder --linux --publish=never",
-    "dist:win": "npm run build && npm run build:backend && electron-builder --win --publish=never",
+    "dist:win": "npm run build && electron-builder --win --publish=never",
     "dist:mac": "npm run build && npm run build:backend && electron-builder --mac --publish=never"
   },
   "build": {
@@ -31,15 +32,7 @@
       "dist-electron/**/*",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "dist-backend",
-        "to": "backend-bin",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
+    "extraResources": [],
     "linux": {
       "target": [
         "AppImage",
@@ -59,8 +52,12 @@
       "category": "public.app-category.education"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "UniPath",
+      "runAfterFinish": true
     }
   },
   "dependencies": {

@@ -311,6 +311,7 @@ export const useStore = create<AppState>((set, get) => {
     },
 
     advanceCard: (totalCards) => {
+      if (totalCards <= 0) return
       const { currentCardIndex } = get()
       const next = (currentCardIndex + 1) % totalCards
       set({ currentCardIndex: next })

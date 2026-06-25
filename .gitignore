@@ -35,6 +35,7 @@ scripts/__pycache__/
 
 # Android APK at root
 UniPath.apk
+UniPath-v*.android.apk
 
 # Capacitor generated (already in android/.gitignore)
 android/.gradle/

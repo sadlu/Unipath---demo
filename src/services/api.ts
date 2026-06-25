@@ -363,7 +363,7 @@ export async function authRegister(
     return res.json()
   } catch (e: any) {
     const msg = e.name === 'TimeoutError' || e.name === 'AbortError'
-      ? 'Cannot reach the backend server. Ensure the backend is running and the Server URL is correct in Settings.'
+      ? 'Server not responding — check your internet connection or try again later.'
       : (e.message || 'Server unreachable')
     return { ok: false, error: msg }
   }
@@ -382,7 +382,7 @@ export async function authLogin(
     return res.json()
   } catch (e: any) {
     const msg = e.name === 'TimeoutError' || e.name === 'AbortError'
-      ? 'Cannot reach the backend server. Ensure the backend is running and the Server URL is correct in Settings.'
+      ? 'Server not responding — check your internet connection or try again later.'
       : (e.message || 'Server unreachable')
     return { ok: false, error: msg }
   }
