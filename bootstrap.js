@@ -198,7 +198,7 @@ async function downloadSource() {
 
 async function setupAndLaunch() {
   info('\n[3/4] Installing npm dependencies ...')
-  await run('npm', ['install'], { cwd: INSTALL_DIR })
+  await run('npm', ['install', '--legacy-peer-deps'], { cwd: INSTALL_DIR })
 
   info('\n[4/4] Building the app ...')
   await run('npm', ['run', 'build'], { cwd: INSTALL_DIR })
