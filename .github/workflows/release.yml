@@ -40,7 +40,7 @@ jobs:
           path: dist-setup/*
 
   build-windows:
-    name: Build Windows (NSIS installer)
+    name: Build Windows (NSIS + Inno Setup installer)
     runs-on: windows-latest
 
     steps:
@@ -54,20 +54,37 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+
       - name: Install Python deps
         run: pip install -r backend/requirements.txt pyinstaller
 
       - name: Install Node deps
         run: npm install
 
-      - name: Build app
-        run: npm run dist:win
+      - name: Download VC++ Redistributable
+        shell: pwsh
+        run: |
+          mkdir installer\redist -Force
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "installer\redist\vc_redist.x64.exe" -UseBasicParsing
 
-      - name: Upload artifacts
+      - name: Build app + custom installer
+        run: npm run dist:installer
+
+      - name: Upload electron-builder artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: unipath-windows
+          name: unipath-windows-electron
           path: dist-setup/*
+
+      - name: Upload custom Inno Setup installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: unipath-windows-installer
+          path: dist-installer/*.exe
 
   build-macos:
     name: Build macOS (DMG)
@@ -118,15 +135,20 @@ jobs:
 
             ### Downloads
             - **Linux**: Download the `.AppImage` or `.deb` from the `unipath-linux` artifact below
-            - **Windows**: Download the `.exe` installer from the `unipath-windows` artifact below
+            - **Windows**:
+              - **Recommended**: `UniPath-Setup-*.exe` (smart installer - handles everything automatically)
+              - **Alternative**: `UniPath Setup *.exe` (standard electron-builder NSIS installer)
             - **macOS**: Download the `.dmg` from the `unipath-macos` artifact below
 
             ### No dependencies needed!
             Just download the installer for your OS and run it.
+            The Windows installer auto-installs VC++ Redistributables if missing,
+            sets up the backend, adds a firewall rule, and launches the app.
 
             ### What's New
             See the commit log for details.
           files: |
             unipath-linux/*
-            unipath-windows/*
+            unipath-windows-electron/*
+            unipath-windows-installer/*
             unipath-macos/*
