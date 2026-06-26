@@ -25,13 +25,19 @@ jobs:
           python-version: '3.11'
 
       - name: Install Python deps
-        run: pip install -r backend/requirements.txt pyinstaller
+        run: pip3 install -r backend/requirements.txt pyinstaller
 
       - name: Install Node deps
         run: npm install --legacy-peer-deps
 
-      - name: Build app
-        run: npm run dist:linux
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build backend (PyInstaller)
+        run: python3 scripts/build_backend.py
+
+      - name: Package with electron-builder
+        run: npx electron-builder --linux --publish=never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -60,8 +66,14 @@ jobs:
       - name: Install Node deps
         run: npm install --legacy-peer-deps
 
-      - name: Build frontend + backend + electron-builder
-        run: npm run dist:win
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build backend (PyInstaller)
+        run: python scripts/build_backend.py
+
+      - name: Package with electron-builder
+        run: npx electron-builder --win --publish=never
 
       - name: Install Inno Setup
         shell: pwsh
@@ -110,8 +122,14 @@ jobs:
       - name: Install Node deps
         run: npm install --legacy-peer-deps
 
-      - name: Build app
-        run: npm run dist:mac
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build backend (PyInstaller)
+        run: python scripts/build_backend.py
+
+      - name: Package with electron-builder
+        run: npx electron-builder --mac --publish=never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
