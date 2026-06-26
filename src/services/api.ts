@@ -437,6 +437,7 @@ export function clearRefreshToken() {
 
 export async function authRefresh(refreshToken: string): Promise<{ ok: boolean; token?: string; refresh_token?: string; error?: string }> {
   try {
+    await discoverApiBase()
     return await tryFetchWithFallback('/api/auth/refresh', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -450,6 +451,7 @@ export async function authRegister(
   uid: string, displayName: string, password: string, subjects?: string[],
 ): Promise<{ ok: boolean; token?: string; refresh_token?: string; user?: AuthUserData; error?: string }> {
   try {
+    await discoverApiBase()
     return await tryFetchWithFallback('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -471,6 +473,9 @@ async function tryFetchWithFallback(
   if (fallback && fallback !== bases[0]) bases.push(fallback)
   const discovered = getDiscoveredBase()
   if (discovered && !bases.includes(discovered)) bases.unshift(discovered)
+  for (const url of CANDIDATE_URLS) {
+    if (!bases.includes(url)) bases.push(url)
+  }
   const seen = new Set<string>()
   for (const base of bases) {
     if (seen.has(base)) continue
@@ -504,6 +509,7 @@ export async function authLogin(
   uid: string, password: string,
 ): Promise<{ ok: boolean; token?: string; refresh_token?: string; user?: AuthUserData; error?: string }> {
   try {
+    await discoverApiBase()
     return await tryFetchWithFallback('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -517,6 +523,7 @@ export async function authLogin(
 
 export async function authMe(token: string): Promise<{ ok: boolean; user?: AuthUserData; error?: string }> {
   try {
+    await discoverApiBase()
     return await tryFetchWithFallback(`/api/auth/me?token=${encodeURIComponent(token)}`, {
       signal: AbortSignal.timeout(20_000),
     })
