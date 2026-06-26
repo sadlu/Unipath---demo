@@ -4,11 +4,11 @@ import { isElectron, isCapacitor } from '../lib/platform'
 const REMOTE_FALLBACK = 'https://unipath-app.fly.dev'
 
 const CANDIDATE_URLS = [
+  'https://09aa-110-44-116-125.ngrok-free.app',
   REMOTE_FALLBACK,
   'https://unipath-proxy.fouadazad1234.workers.dev',
   'http://localhost:8000',
   'http://127.0.0.1:8000',
-  'https://96c2-110-44-116-125.ngrok-free.app',
 ]
 
 const STORAGE_KEY = 'unipath_api_url'

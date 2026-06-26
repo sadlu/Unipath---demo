@@ -7,7 +7,16 @@ import shutil
 import html
 import json
 import time
-import imghdr
+def _detect_image_type(data: bytes) -> str | None:
+    if data[:2] == b'\xff\xd8':
+        return 'jpeg'
+    if data[:4] == b'\x89PNG':
+        return 'png'
+    if data[:6] in (b'GIF87a', b'GIF89a'):
+        return 'gif'
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'webp'
+    return None
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
@@ -629,9 +638,7 @@ def _validate_image(file: UploadFile) -> bool:
         return False
     contents = file.file.read(32)
     file.file.seek(0)
-    detected = imghdr.what(None, h=contents)
-    if detected is None:
-        detected = ext
+    detected = _detect_image_type(contents) or ext
     return detected in _ALLOWED_MIME_TYPES
 
 
