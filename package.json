@@ -48,24 +48,19 @@
         "AppImage",
         "deb"
       ],
-      "icon": "build/icon-512.png",
       "category": "Education"
     },
     "win": {
       "target": [
         "nsis"
-      ],
-      "icon": "build/icon-512.png"
+      ]
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "build/icon-512.png",
       "category": "public.app-category.education",
       "hardenedRuntime": true,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": false
     },
     "nsis": {
@@ -76,10 +71,6 @@
       "createStartMenuShortcut": true,
       "shortcutName": "UniPath",
       "runAfterFinish": true,
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
-      "installerHeaderIcon": "build/icon.ico",
-      "warningsPerLicense": false,
       "deleteAppDataOnUninstall": false,
       "language": "1033"
     }
