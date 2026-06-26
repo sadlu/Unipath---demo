@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { registerEmail, verifyEmail, getProfile, uploadAvatar, updateProfile, getApiBase, getDiscoveredBase, discoverApiBase, getStoredToken, authChangePassword } from '../services/api'
+import { registerEmail, verifyEmail, getProfile, uploadAvatar, updateProfile, getApiBase, getDiscoveredBase, discoverApiBase, setApiBase, getStoredToken, authChangePassword } from '../services/api'
 import * as localAuth from '../localAuth'
 
 function TiltCard({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -1030,9 +1030,10 @@ export default function SettingsView() {
               onClick={() => {
                 const url = editServerUrl.trim()
                 if (!url) {
-                  localStorage.removeItem('unipath_server_url')
+                  setApiBase('')
+                  localStorage.removeItem('unipath_api_url')
                 } else {
-                  localStorage.setItem('unipath_server_url', url)
+                  setApiBase(url)
                 }
                 setShowServerUrlEdit(false)
                 window.location.reload()
@@ -1068,9 +1069,10 @@ export default function SettingsView() {
               onClick={() => {
                 const url = editServerUrl.trim()
                 if (!url) {
-                  localStorage.removeItem('unipath_server_url')
+                  setApiBase('')
+                  localStorage.removeItem('unipath_api_url')
                 } else {
-                  localStorage.setItem('unipath_server_url', url)
+                  setApiBase(url)
                 }
                 setShowServerUrlEdit(false)
                 window.location.reload()

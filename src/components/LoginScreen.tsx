@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { useIsMobile } from '../hooks/useIsMobile'
-import { LogIn, UserPlus, User, Eye, EyeOff, Wifi, WifiOff, RefreshCw, Sparkles, Loader2, RotateCcw } from 'lucide-react'
+import { LogIn, UserPlus, User, Eye, EyeOff, Wifi, WifiOff, RefreshCw, Sparkles, Loader2, RotateCcw, Settings2 } from 'lucide-react'
 import { useServerStatus } from '../hooks/useServerStatus'
+import { setApiBase } from '../services/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { sounds } from '../lib/sound'
 
@@ -207,6 +208,24 @@ export default function LoginScreen() {
                'Tap to retry'}
             </span>
           </motion.button>
+
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <motion.button
+              type="button"
+              onClick={() => {
+                const url = window.prompt('Enter backend server URL:', localStorage.getItem('unipath_api_url') || 'https://')
+                if (url && url.trim()) {
+                  setApiBase(url.trim())
+                  serverStatus.check()
+                }
+              }}
+              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+              whileTap={{ scale: 0.95 }}
+            >
+              <Settings2 className="w-3 h-3" />
+              Set Server URL
+            </motion.button>
+          </div>
 
           <form onSubmit={handleSubmit}>
             <AnimatePresence mode="wait">
