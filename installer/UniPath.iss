@@ -45,14 +45,11 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Name: "firewall"; Description: "Add Windows Firewall &exception for the backend"; GroupDescription: "Additional tasks:"; Flags: checkedonce
 
 [Files]
-; ── Electron app from electron-builder ──
-Source: "..\dist-setup\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsElectronBuilderOutput
+; ── Unpacked Electron app from electron-builder --dir ──
+Source: "..\dist-setup\win-unpacked\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsUnpackedDir
 
-; ── Fallback: raw app files ──
-Source: "..\dist\*"; DestDir: "{app}\dist"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: not IsElectronBuilderOutput
-Source: "..\dist-electron\*"; DestDir: "{app}\dist-electron"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: not IsElectronBuilderOutput
-Source: "..\node_modules\*"; DestDir: "{app}\node_modules"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: not IsElectronBuilderOutput
-Source: "..\package.json"; DestDir: "{app}"; Flags: ignoreversion; Check: not IsElectronBuilderOutput
+; ── Fallback: electron-builder portable output ──
+Source: "..\dist-setup\*.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: not IsUnpackedDir
 
 ; ── Backend binary ──
 Source: "..\dist-backend\*"; DestDir: "{app}\backend-bin"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -78,9 +75,9 @@ begin
       Result := (Installed = 1);
 end;
 
-function IsElectronBuilderOutput: Boolean;
+function IsUnpackedDir: Boolean;
 begin
-  Result := DirExists(ExpandConstant('{srcexe}') + '\..\dist-setup');
+  Result := DirExists(ExpandConstant('{srcexe}') + '\..\dist-setup\win-unpacked');
 end;
 
 [Dirs]

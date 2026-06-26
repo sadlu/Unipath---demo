@@ -72,8 +72,8 @@ jobs:
       - name: Build backend (PyInstaller)
         run: python scripts/build_backend.py
 
-      - name: Package with electron-builder
-        run: npx electron-builder --win --publish=never
+      - name: Package with electron-builder (unpacked)
+        run: npx electron-builder --win --publish=never --dir --config.win.target=portable
 
       - name: Install Inno Setup
         shell: pwsh
