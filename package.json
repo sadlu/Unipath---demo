@@ -22,7 +22,8 @@
     "dist:win": "npm run build && npm run build:backend && electron-builder --win --publish=never",
     "dist:mac": "npm run build && npm run build:backend && electron-builder --mac --publish=never",
     "dist:installer": "npm run build && npm run build:backend && electron-builder --win --publish=never && installer\\build-installer.bat",
-    "dist:installer:quick": "installer\\build-installer.bat"
+    "dist:installer:compile": "installer\\build-installer.bat",
+    "dist:installer:full": "npm run build && npm run build:backend && installer\\build-installer.bat"
   },
   "build": {
     "appId": "com.unipath.desktop",

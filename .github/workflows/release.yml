@@ -28,7 +28,7 @@ jobs:
         run: pip install -r backend/requirements.txt pyinstaller
 
       - name: Install Node deps
-        run: npm install
+        run: npm ci
 
       - name: Build app
         run: npm run dist:linux
@@ -40,7 +40,7 @@ jobs:
           path: dist-setup/*
 
   build-windows:
-    name: Build Windows (NSIS installer)
+    name: Build Windows
     runs-on: windows-latest
 
     steps:
@@ -58,16 +58,36 @@ jobs:
         run: pip install -r backend/requirements.txt pyinstaller
 
       - name: Install Node deps
-        run: npm install
+        run: npm ci
 
-      - name: Build app
+      - name: Build frontend + backend + electron-builder
         run: npm run dist:win
 
-      - name: Upload artifacts
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Download VC++ Redistributable
+        shell: pwsh
+        run: |
+          mkdir installer\redist -Force -ErrorAction SilentlyContinue
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "installer\redist\vc_redist.x64.exe" -UseBasicParsing
+
+      - name: Compile Inno Setup installer
+        shell: cmd
+        run: installer\build-installer.bat
+
+      - name: Upload electron-builder output
         uses: actions/upload-artifact@v4
         with:
-          name: unipath-windows
+          name: unipath-windows-electron
           path: dist-setup/*
+
+      - name: Upload custom installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: unipath-windows-installer
+          path: dist-installer/*.exe
 
   build-macos:
     name: Build macOS (DMG)
@@ -88,7 +108,7 @@ jobs:
         run: pip install -r backend/requirements.txt pyinstaller
 
       - name: Install Node deps
-        run: npm install
+        run: npm ci
 
       - name: Build app
         run: npm run dist:mac
@@ -117,16 +137,22 @@ jobs:
             ## UniPath ${{ github.ref_name }}
 
             ### Downloads
-            - **Linux**: Download the `.AppImage` or `.deb` from the `unipath-linux` artifact below
-            - **Windows**: Download the `.exe` installer from the `unipath-windows` artifact below
-            - **macOS**: Download the `.dmg` from the `unipath-macos` artifact below
 
-            ### No dependencies needed!
-            Just download the installer for your OS and run it.
+            **Windows**
+            - `UniPath-Setup-*.exe` — One-click installer (recommended). Handles everything automatically.
+            - `UniPath Setup *.exe` — Standard NSIS installer.
 
-            ### What's New
-            See the commit log for details.
+            **macOS**
+            - `UniPath-*.dmg` — Drag to Applications folder.
+
+            **Linux**
+            - `UniPath-*.AppImage` — Make executable and run.
+            - `UniPath-*.deb` — Debian/Ubuntu package.
+
+            ### No dependencies needed
+            Just download and run.
           files: |
             unipath-linux/*
-            unipath-windows/*
+            unipath-windows-electron/*
+            unipath-windows-installer/*
             unipath-macos/*
