@@ -12,15 +12,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "start": "electron .",
     "preview": "vite preview",
     "build:backend": "python scripts/build_backend.py",
     "build:backend:bash": "bash scripts/build-backend.sh",
     "dist:full": "npm run build && npm run build:backend && electron-builder --publish=never",
     "dist:linux": "npm run build && npm run build:backend && electron-builder --linux --publish=never",
-    "dist:win": "npm run build && electron-builder --win --publish=never",
-    "dist:mac": "npm run build && npm run build:backend && electron-builder --mac --publish=never"
+    "dist:win": "npm run build && npm run build:backend && electron-builder --win --publish=never",
+    "dist:mac": "npm run build && npm run build:backend && electron-builder --mac --publish=never",
+    "dist:installer": "npm run build && npm run build:backend && electron-builder --win --publish=never && installer\\build-installer.bat",
+    "dist:installer:quick": "installer\\build-installer.bat"
   },
   "build": {
     "appId": "com.unipath.desktop",
@@ -66,17 +68,24 @@
       "notarize": false
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "UniPath",
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "warningsPerLicense": false,
+      "deleteAppDataOnUninstall": false,
+      "language": "1033"
     }
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
-    "@capacitor/cli": "^7.6.7",
+    "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "@emotion/is-prop-valid": "^1.4.0",
     "@react-three/drei": "^10.7.7",
@@ -91,7 +100,6 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "three": "^0.184.0",
-    "vite-plugin-pwa": "^1.3.0",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
@@ -106,6 +114,7 @@
     "typescript": "^5.5.2",
     "vite": "^5.3.1",
     "vite-plugin-electron": "^0.28.6",
-    "vite-plugin-electron-renderer": "^0.14.5"
+    "vite-plugin-electron-renderer": "^0.14.5",
+    "vite-plugin-pwa": "^1.3.0"
   }
 }

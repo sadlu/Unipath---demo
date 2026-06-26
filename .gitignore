@@ -33,6 +33,9 @@ dist-backend/
 # Build artifacts
 scripts/__pycache__/
 
+# Generated build assets (icons, entitlements, etc.)
+build/
+
 # Android APK at root
 UniPath.apk
 UniPath-v*.android.apk
