@@ -73,7 +73,10 @@ jobs:
         run: python scripts/build_backend.py
 
       - name: Package with electron-builder (unpacked)
-        run: npx electron-builder --win --publish=never --dir --config.win.target=portable
+        run: npx electron-builder --win --publish=never --dir
+
+      - name: Debug - list dist-setup contents
+        run: dir /s /b dist-setup 2>nul || echo "dist-setup not found"
 
       - name: Install Inno Setup
         shell: pwsh
