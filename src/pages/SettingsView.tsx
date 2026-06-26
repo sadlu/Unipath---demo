@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { registerEmail, verifyEmail, getProfile, uploadAvatar, updateProfile, getApiBase, getStoredToken, authChangePassword } from '../services/api'
+import { registerEmail, verifyEmail, getProfile, uploadAvatar, updateProfile, getApiBase, getDiscoveredBase, discoverApiBase, getStoredToken, authChangePassword } from '../services/api'
 import * as localAuth from '../localAuth'
 
 function TiltCard({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -175,9 +175,9 @@ export default function SettingsView() {
 
   const [serverTesting, setServerTesting] = useState(false)
   const [serverStatus, setServerStatus] = useState<'unknown' | 'online' | 'offline'>('unknown')
+  const [serverUrl, setServerUrl] = useState(getApiBase())
   const [showServerUrlEdit, setShowServerUrlEdit] = useState(false)
   const [editServerUrl, setEditServerUrl] = useState('')
-  const serverUrl = getApiBase()
 
   useEffect(() => {
     getProfile(userData.uid).then(p => {
@@ -189,8 +189,10 @@ export default function SettingsView() {
 
   async function checkServerHealth() {
     setServerTesting(true)
+    const base = (await discoverApiBase()) || getDiscoveredBase() || getApiBase()
+    setServerUrl(base)
     try {
-      const res = await fetch(`${serverUrl}/api/health`, { signal: AbortSignal.timeout(5000) })
+      const res = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(5000) })
       setServerStatus(res.ok ? 'online' : 'offline')
     } catch {
       setServerStatus('offline')

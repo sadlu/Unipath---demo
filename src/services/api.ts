@@ -5,10 +5,10 @@ const REMOTE_FALLBACK = 'https://unipath-app.fly.dev'
 
 const CANDIDATE_URLS = [
   'https://09aa-110-44-116-125.ngrok-free.app',
-  REMOTE_FALLBACK,
   'https://unipath-proxy.fouadazad1234.workers.dev',
   'http://localhost:8000',
   'http://127.0.0.1:8000',
+  REMOTE_FALLBACK,
 ]
 
 const STORAGE_KEY = 'unipath_api_url'
@@ -468,15 +468,26 @@ async function tryFetchWithFallback(
   init: RequestInit,
   retries = 1,
 ): Promise<{ ok: boolean; token?: string; refresh_token?: string; user?: AuthUserData; error?: string }> {
-  let bases = [getApiBase()]
-  const fallback = getRemoteFallbackBase()
-  if (fallback && fallback !== bases[0]) bases.push(fallback)
-  const discovered = getDiscoveredBase()
-  if (discovered && !bases.includes(discovered)) bases.unshift(discovered)
-  for (const url of CANDIDATE_URLS) {
-    if (!bases.includes(url)) bases.push(url)
-  }
   const seen = new Set<string>()
+  const bases: string[] = []
+
+  if (_discoveredBase) {
+    bases.push(_discoveredBase)
+    seen.add(_discoveredBase)
+  }
+
+  for (const url of CANDIDATE_URLS) {
+    if (!seen.has(url)) {
+      bases.push(url)
+      seen.add(url)
+    }
+  }
+
+  const defaultBase = getApiBase()
+  if (!seen.has(defaultBase)) {
+    bases.push(defaultBase)
+  }
+
   for (const base of bases) {
     if (seen.has(base)) continue
     seen.add(base)
@@ -489,7 +500,7 @@ async function tryFetchWithFallback(
         const text = await res.text()
         const data = JSON.parse(text)
         if (data.ok !== undefined) {
-          if (discovered !== base) {
+          if (_discoveredBase !== base) {
             _discoveredBase = base
             localStorage.setItem(STORAGE_KEY, base)
           }

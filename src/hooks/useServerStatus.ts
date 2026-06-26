@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { getApiBase } from '../services/api'
+import { discoverApiBase, getDiscoveredBase } from '../services/api'
 
 export type ServerStatus = 'checking' | 'online' | 'offline'
 
@@ -9,9 +9,10 @@ export function useServerStatus() {
   const intervalRef = useRef<ReturnType<typeof setInterval>>()
 
   const check = async () => {
-    const base = getApiBase()
+    setStatus('checking')
+    const base = await discoverApiBase() || getDiscoveredBase()
     if (!base) {
-      setStatus('online')
+      setStatus('offline')
       return
     }
     const start = performance.now()
@@ -34,7 +35,7 @@ export function useServerStatus() {
 
   useEffect(() => {
     check()
-    intervalRef.current = setInterval(check, 15000)
+    intervalRef.current = setInterval(check, 30000)
     return () => clearInterval(intervalRef.current)
   }, [])
 

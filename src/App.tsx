@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { useStore } from './store/useStore'
 import { useIsMobile } from './hooks/useIsMobile'
@@ -31,7 +31,6 @@ export default function App() {
   const preferences = useStore((s) => s.preferences)
   const [chatTargetUid, setChatTargetUid] = useState<string | undefined>(undefined)
   const [peopleInitialized, setPeopleInitialized] = useState(false)
-  const discoveryDone = useRef(false)
 
   useEffect(() => {
     const api = (window as any).electronAPI
@@ -48,14 +47,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (isElectron() || discoveryDone.current) return
-    discoveryDone.current = true
-    if (isCapacitor()) {
-      discoverApiBase().then(url => {
-        if (url) console.log('[UniPath] Auto-discovered backend:', url)
-        else console.warn('[UniPath] No backend found via auto-discovery')
-      })
-    }
+    if (isElectron()) return
+    discoverApiBase().then(url => {
+      if (url) console.log('[UniPath] Auto-discovered backend:', url)
+      else console.warn('[UniPath] No backend found via auto-discovery')
+    })
   }, [])
 
   useEffect(() => {

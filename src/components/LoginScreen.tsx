@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { useIsMobile } from '../hooks/useIsMobile'
-import { LogIn, UserPlus, User, Eye, EyeOff, Wifi, WifiOff, RefreshCw, Sparkles, Loader2 } from 'lucide-react'
+import { LogIn, UserPlus, User, Eye, EyeOff, Wifi, WifiOff, RefreshCw, Sparkles, Loader2, RotateCcw } from 'lucide-react'
 import { useServerStatus } from '../hooks/useServerStatus'
 import { motion, AnimatePresence } from 'framer-motion'
 import { sounds } from '../lib/sound'
@@ -325,6 +325,14 @@ export default function LoginScreen() {
                       className="bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-2.5"
                     >
                       <p className="text-sm text-rose-400 text-center">{error}</p>
+                      <button
+                        type="button"
+                        onClick={() => setError('')}
+                        className="mt-2 mx-auto flex items-center gap-1.5 text-xs font-semibold text-rose-400/70 hover:text-rose-300 transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Try Again
+                      </button>
                     </motion.div>
                   )}
                 </AnimatePresence>
