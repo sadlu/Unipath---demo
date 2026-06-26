@@ -3,6 +3,8 @@ from typing import Optional
 
 from search_service import search_nepal, SearchResult
 from llm_service import generate_answer
+from cache import search_cache
+from local_index import ask as local_ask, index_status
 
 
 @dataclass
@@ -30,6 +32,15 @@ def run_pipeline(
     )
 
     if search_resp.error:
+        local_status = index_status()
+        if local_status.get("exists"):
+            local_answer = local_ask(user_query)
+            if local_answer and "No recent notices" not in local_answer:
+                return PipelineResult(
+                    query=user_query,
+                    answer=local_answer,
+                    results=[],
+                )
         return PipelineResult(
             query=user_query,
             answer=None,
@@ -52,6 +63,15 @@ def run_pipeline(
     )
 
     if answer is None and not search_resp.results:
+        local_status = index_status()
+        if local_status.get("exists"):
+            local_answer = local_ask(user_query)
+            if local_answer and "No recent notices" not in local_answer:
+                return PipelineResult(
+                    query=user_query,
+                    answer=local_answer,
+                    results=[],
+                )
         return PipelineResult(
             query=user_query,
             answer=None,
@@ -67,7 +87,7 @@ def run_pipeline(
             fallback_lines.append(f"**{r.title}**")
             if r.snippet:
                 fallback_lines.append(f"> {r.snippet}")
-            fallback_lines.append(f"🔗 {r.url}")
+            fallback_lines.append(f"\U0001f517 {r.url}")
             fallback_lines.append("")
         answer = "\n".join(fallback_lines)
 

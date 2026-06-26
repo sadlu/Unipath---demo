@@ -391,7 +391,7 @@ export default function DiscoverView() {
                 />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#7C5CFC] to-purple-600 flex items-center justify-center text-lg font-bold text-white">
-                  {userData.displayName[0]}
+                  {userData.displayName?.charAt(0) || '?'}
                 </div>
               )}
             </div>

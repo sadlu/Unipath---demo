@@ -3,6 +3,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Optional
 
+from cache import search_cache, opportunity_cache
+
 
 @dataclass
 class SearchResult:
@@ -39,6 +41,11 @@ def _build_nepal_query(user_query: str) -> str:
 
 
 def _duckduckgo_search(query: str, max_results: int = 8, timeout_s: int = 10) -> SearchResponse:
+    cache_key = f"ddg:{query.lower().strip()}:{max_results}"
+    cached = search_cache.get(cache_key)
+    if cached:
+        return cached
+
     try:
         from ddgs import DDGS
     except ImportError:
@@ -46,8 +53,7 @@ def _duckduckgo_search(query: str, max_results: int = 8, timeout_s: int = 10) ->
             from duckduckgo_search import DDGS
         except ImportError:
             return SearchResponse(
-                error="DuckDuckGo search not installed. "
-                      "Run: pip install ddgs"
+                error="DuckDuckGo search not installed. Run: pip install ddgs"
             )
 
     nepal_query = _build_nepal_query(query)
@@ -74,7 +80,9 @@ def _duckduckgo_search(query: str, max_results: int = 8, timeout_s: int = 10) ->
     except Exception as e:
         return SearchResponse(error=f"DuckDuckGo search failed: {e}")
 
-    return SearchResponse(results=results, total_estimated=len(results))
+    response = SearchResponse(results=results, total_estimated=len(results))
+    search_cache.set(cache_key, response)
+    return response
 
 
 def search_nepal(query: str, max_results: int = 8) -> SearchResponse:

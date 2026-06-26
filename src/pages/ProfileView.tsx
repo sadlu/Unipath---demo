@@ -77,7 +77,7 @@ export default function ProfileView() {
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#00F0FF] to-[#7C5CFC] flex items-center justify-center text-2xl font-black text-white overflow-hidden shadow-xl shadow-[#00F0FF]/30">
               {(userData as any).photoURL ? (
                 <img src={(userData as any).photoURL} className="w-full h-full object-cover" alt="" />
-              ) : userData.displayName[0]}
+              ) : userData.displayName?.charAt(0) || '?'}
             </div>
             <h2 className="text-xl font-extrabold text-white">{userData.displayName}</h2>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -129,7 +129,7 @@ export default function ProfileView() {
                 <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-[#00F0FF] to-[#7C5CFC] flex items-center justify-center text-xl md:text-2xl font-black text-white shrink-0 overflow-hidden shadow-lg shadow-[#00F0FF]/30">
                   {(userData as any).photoURL ? (
                     <img src={(userData as any).photoURL} className="w-full h-full object-cover" alt="" />
-                  ) : userData.displayName[0]}
+                  ) : userData.displayName?.charAt(0) || '?'}
                 </div>
                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                   <h2 className="text-lg md:text-xl font-extrabold text-white truncate">{userData.displayName}</h2>

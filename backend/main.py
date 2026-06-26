@@ -1,11 +1,14 @@
 import re
 import sys
 import os
+import threading
 import uuid
 import shutil
 import html
 import json
 import time
+import imghdr
+import logging
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -19,7 +22,7 @@ try:
 except ImportError:
     pass
 
-from fastapi import FastAPI, Query, UploadFile, File
+from fastapi import FastAPI, Query, UploadFile, File, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -27,6 +30,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from middleware import RateLimitMiddleware
 from pipeline import run_pipeline
 from local_index import ask as local_ask, scrape_all, index_status
 from search_service import search_nepal, search_nepal_multi
@@ -60,31 +64,59 @@ from database import (
     sync_user_data,
     hash_password,
     update_user_password,
+    cleanup_expired_verifications,
+    create_password_reset_token,
+    verify_password_reset_token,
+    delete_user_account,
+    export_user_data,
+    get_all_uids,
 )
 from email_service import send_verification_email
+from cache import search_cache, discover_cache, opportunity_cache
+from deduplicator import is_duplicate, mark_seen, start_dedup_cleaner, dedup_size
+from classifier import classify_opportunity, is_relevant, compute_match_percentage
+from ground_truth import verify_url, queue_verification, start_verifier_thread
+from websocket_handler import manager, handle_chat_ws
+from feedback import submit_feedback, get_feedback_stats, get_user_feedback, get_highest_rated, ensure_feedback_tables
+from scheduler import start_scheduler
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="UniPath Backend",
     description="Search-then-Extract API for Nepal-focused educational opportunities",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "dist"
-ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", f"http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173,app://.,http://localhost:8000,http://127.0.0.1:8000,capacitor://localhost,http://localhost,file://,https://unipath-proxy.fouadazad1234.workers.dev").split(",")
+ALLOWED_ORIGINS = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173,http://localhost:8000,http://127.0.0.1:8000,capacitor://localhost,http://localhost,https://unipath-proxy.fouadazad1234.workers.dev"
+).split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RateLimitMiddleware)
 
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 AVATAR_DIR = UPLOAD_DIR / "avatars"
 CHAT_IMG_DIR = UPLOAD_DIR / "chat"
 AVATAR_DIR.mkdir(parents=True, exist_ok=True)
 CHAT_IMG_DIR.mkdir(parents=True, exist_ok=True)
+
+_ALLOWED_MIME_TYPES = {
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "gif": "image/gif",
+    "webp": "image/webp",
+}
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
@@ -97,6 +129,7 @@ class SearchResponse(BaseModel):
     answer: str | None = None
     results: list[dict] = []
     error: str | None = None
+    cached: bool = False
 
 
 class ChatRequest(BaseModel):
@@ -109,6 +142,7 @@ class ChatResponse(BaseModel):
     answer: str | None = None
     results: list[dict] = []
     error: str | None = None
+    cached: bool = False
 
 
 @app.get("/api/search")
@@ -116,13 +150,16 @@ def search_endpoint(
     q: str = Query(..., description="Search query for Nepal opportunities"),
     max_results: int = Query(8, ge=1, le=20),
 ):
-    if not _check_rate_limit("search", 15):
-        return SearchResponse(query=q, error="Rate limit exceeded. Please wait.")
+    cache_key = f"search:{q.lower().strip()}:{max_results}"
+    cached = search_cache.get(cache_key)
+    if cached:
+        return SearchResponse(**cached, cached=True)
+
     result = run_pipeline(
         user_query=q,
         max_search_results=max_results,
     )
-    return SearchResponse(
+    resp = SearchResponse(
         query=result.query,
         answer=result.answer,
         results=[
@@ -131,17 +168,22 @@ def search_endpoint(
         ],
         error=result.error,
     )
+    search_cache.set(cache_key, resp.model_dump())
+    return resp
 
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_endpoint(body: ChatRequest):
-    if not _check_rate_limit("chat", 15):
-        return ChatResponse(query=body.query, error="Rate limit exceeded. Please wait.")
+    cache_key = f"chat:{body.query.lower().strip()}:{body.max_results}"
+    cached = search_cache.get(cache_key)
+    if cached:
+        return ChatResponse(**cached, cached=True)
+
     result = run_pipeline(
         user_query=body.query,
         max_search_results=body.max_results,
     )
-    return ChatResponse(
+    resp = ChatResponse(
         query=result.query,
         answer=result.answer,
         results=[
@@ -150,6 +192,8 @@ def chat_endpoint(body: ChatRequest):
         ],
         error=result.error,
     )
+    search_cache.set(cache_key, resp.model_dump())
+    return resp
 
 
 @app.get("/api/local-index/status")
@@ -199,6 +243,8 @@ class DiscoveredOpportunity(BaseModel):
     cost: str = ""
     eligibility: str = ""
     skills: str = ""
+    verified: bool = False
+    verified_at: str = ""
 
 
 def _score_result_freshness(title: str, snippet: str) -> int:
@@ -227,23 +273,6 @@ def _score_result_freshness(title: str, snippet: str) -> int:
 
 
 _NEPAL_KEYWORDS = ["nepal", "kathmandu", "pokhara", "lalitpur", "bhaktapur", "site:.np"]
-_OPP_CATEGORIES = [
-    ("Volunteering", "\U0001f9f3", ["volunteer", "volunteering", "community service", "social work", "sewa"]),
-    ("Workshop", "\U0001f528", ["workshop", "training", "bootcamp", "skill", "hands-on", "learn"]),
-    ("Competition", "\U0001f3c6", ["competition", "hackathon", "contest", "olympiad", "challenge"]),
-    ("Scholarship", "\U0001f393", ["scholarship", "fellowship", "grant", "funding", "financial aid"]),
-    ("Internship", "\U0001f4bc", ["internship", "intern", "trainee", "apprenticeship"]),
-    ("Conference", "\U0001f30d", ["conference", "seminar", "summit", "symposium", "student event"]),
-]
-
-
-def _classify_opportunity(title: str, snippet: str) -> tuple[str, str]:
-    text = (title + " " + snippet).lower()
-    for label, icon, keywords in _OPP_CATEGORIES:
-        if any(kw in text for kw in keywords):
-            return label, icon
-    return "Opportunity", "\U0001f30d"
-
 
 _SKIP_PATTERNS = re.compile(
     r"(top\s+\d+|best\s+colleges?|ranking|admission\s+open|"
@@ -255,21 +284,30 @@ _SKIP_PATTERNS = re.compile(
 
 
 def _extract_deadline(text: str) -> str:
-    m = re.search(
+    patterns = [
         r"(?:deadline|apply\s*(?:before|by)|last\s*date|registration\s*(?:closes?|ends?|deadline))\s*:?\s*"
         r"(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}|"
-        r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s*\d{4})",
-        text, re.IGNORECASE,
-    )
-    return m.group(1) if m else ""
+        r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s*\d{4}|\d{1,2}\s+"
+        r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})",
+        r"(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            return m.group(1)
+    return ""
 
 
 def _extract_cost(text: str) -> str:
-    m = re.search(r"(?:free|cost|fee|price|ticket|npr\s*[\d,]+|rs\s*[\d,]+|\$\s*[\d,]+)", text, re.IGNORECASE)
+    m = re.search(
+        r"(?:free|cost|fee|price|ticket|npr\s*[\d,]+|rs\s*[\d,]+|\$\s*[\d,]+|"
+        r"no\s*(?:cost|fee)|scholarship\s*(?:available|provided))",
+        text, re.IGNORECASE,
+    )
     if not m:
         return ""
     val = m.group(0)
-    if val.lower() == "free":
+    if val.lower() in ("free", "no cost", "no fee"):
         return "Free"
     return val
 
@@ -320,17 +358,6 @@ def _extract_skills(text: str) -> str:
     return m.group(1).strip() if m else ""
 
 
-def _is_relevant(title: str, snippet: str, query_parts: list[str]) -> bool:
-    text = (title + " " + snippet).lower()
-    if _SKIP_PATTERNS.search(text):
-        return False
-    if not any(kw in text for kw in _NEPAL_KEYWORDS):
-        return False
-    if query_parts and not any(kw.lower() in text for kw in query_parts):
-        return False
-    return True
-
-
 @app.get("/api/discover")
 def discover_endpoint(
     subjects: str = Query("", description="Comma-separated subjects"),
@@ -338,9 +365,8 @@ def discover_endpoint(
     type: str = Query("", description="Filter: volunteering, workshop, competition, scholarship, internship, conference"),
     location: str = Query("", description="City or region in Nepal"),
     date_from: str = Query("", description="Posted after YYYY-MM-DD"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
 ):
-    if not _check_rate_limit("discover", 10):
-        return {"opportunities": [], "error": "Rate limit exceeded. Please wait."}
     now = datetime.now(timezone.utc)
     year = now.year
     query_parts = [s.strip() for s in subjects.split(",") if s.strip()]
@@ -366,21 +392,25 @@ def discover_endpoint(
         for r in search_resp.results:
             title = (r.title or "").strip()
             snippet = (r.snippet or "")[:300]
+            url = r.url or ""
 
             if not title or title.lower() in seen_titles:
                 continue
-            if not _is_relevant(title, snippet, query_parts):
+            if not is_relevant(title, snippet, query_parts):
+                continue
+            if is_duplicate(title, url):
                 continue
 
             seen_titles.add(title.lower())
+            mark_seen(title, url)
+
             freshness = _score_result_freshness(title, snippet)
             if freshness < 10:
                 continue
 
-            matched_kw = sum(1 for kw in query_parts if kw.lower() in (title + snippet).lower())
-            match_pct = min(98, freshness + matched_kw * 5 + 5)
+            match_pct = compute_match_percentage(title, snippet, query_parts, freshness)
 
-            category, icon = _classify_opportunity(title, snippet)
+            category, icon = classify_opportunity(title, snippet)
 
             if type_filter and category.lower() != type_filter:
                 continue
@@ -393,6 +423,9 @@ def discover_endpoint(
             eligibility = _extract_eligibility(extracted)
             skills = _extract_skills(extracted)
 
+            verification = verify_url(url)
+            queue_verification(url)
+
             opp_id += 1
             all_opps.append((
                 freshness,
@@ -402,19 +435,28 @@ def discover_endpoint(
                     description=snippet or "No description available.",
                     tags=[category] + [p.capitalize() for p in query_parts[:2]],
                     organization=r.source_site or "Unknown",
-                    applyUrl=r.url or "",
+                    applyUrl=url or "",
                     matchPercentage=match_pct,
                     registrationDeadline=deadline,
                     cost=cost,
                     eligibility=eligibility,
                     skills=skills,
+                    verified=verification.get("alive", False),
+                    verified_at=verification.get("checked_at", ""),
                 ),
             ))
 
     all_opps.sort(key=lambda x: -x[0])
-    opportunities = [o for _, o in all_opps[:20]]
+    total = len(all_opps)
+    opportunities = [o for _, o in all_opps[offset:offset + limit]]
 
-    return {"opportunities": [o.model_dump() for o in opportunities], "error": None}
+    return {
+        "opportunities": [o.model_dump() for o in opportunities],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "error": None,
+    }
 
 
 class CVAdviseRequest(BaseModel):
@@ -432,9 +474,6 @@ class CVAdviseResponse(BaseModel):
 
 @app.post("/api/cv/advise", response_model=CVAdviseResponse)
 def cv_advise_endpoint(body: CVAdviseRequest):
-    if not _check_rate_limit("cv", 10):
-        return CVAdviseResponse(query=body.query, error="Rate limit exceeded. Please wait.")
-
     user = get_user(body.uid)
     if not user:
         return CVAdviseResponse(query=body.query, error="User not found. Please create an account first.")
@@ -489,6 +528,8 @@ def cv_advise_endpoint(body: CVAdviseRequest):
 @app.on_event("startup")
 def on_startup():
     init_db()
+    ensure_feedback_tables()
+    start_scheduler()
 
 
 class RegisterEmailRequest(BaseModel):
@@ -582,8 +623,22 @@ def put_profile(uid: str, body: UpdateProfileRequest):
     return {"ok": ok, "error": None}
 
 
+def _validate_image(file: UploadFile) -> bool:
+    ext = Path(file.filename or ".jpg").suffix.lower().lstrip(".")
+    if ext not in _ALLOWED_MIME_TYPES:
+        return False
+    contents = file.file.read(32)
+    file.file.seek(0)
+    detected = imghdr.what(None, h=contents)
+    if detected is None:
+        detected = ext
+    return detected in _ALLOWED_MIME_TYPES
+
+
 @app.post("/api/upload/avatar")
 async def upload_avatar(uid: str = Query(...), file: UploadFile = File(...)):
+    if not _validate_image(file):
+        return {"ok": False, "error": "Invalid image type. Allowed: jpg, png, gif, webp"}
     ext = Path(file.filename or ".jpg").suffix
     filename = f"{uid}{ext}"
     dest = AVATAR_DIR / filename
@@ -596,6 +651,8 @@ async def upload_avatar(uid: str = Query(...), file: UploadFile = File(...)):
 
 @app.post("/api/upload/chat-image")
 async def upload_chat_image(file: UploadFile = File(...)):
+    if not _validate_image(file):
+        return {"ok": False, "error": "Invalid image type. Allowed: jpg, png, gif, webp"}
     ext = Path(file.filename or ".jpg").suffix
     filename = f"{uuid.uuid4().hex}{ext}"
     dest = CHAT_IMG_DIR / filename
@@ -682,27 +739,16 @@ def people_is_following(follower_uid: str, following_uid: str):
     return {"ok": True, "following": result}
 
 
-_RATE_LIMIT_WINDOW = 10
-_rate_log: dict[str, list[float]] = {}
 
-def _check_rate_limit(key: str, max_calls: int = 20) -> bool:
-    now = time.time()
-    window = _RATE_LIMIT_WINDOW
-    _rate_log[key] = [t for t in _rate_log.get(key, []) if now - t < window]
-    if len(_rate_log[key]) >= max_calls:
-        return False
-    _rate_log[key].append(now)
-    return True
-
-def _sanitize(text: str) -> str:
+def _sanitize(text: str | None) -> str:
+    if text is None:
+        return ""
     return html.escape(text.strip(), quote=True)
 
 @app.post("/api/chat/send")
 def chat_send(body: SendMessageRequest):
     if not body.image_url and not body.content.strip():
         return {"ok": False, "error": "Message cannot be empty"}
-    if not _check_rate_limit(f"chat:{body.from_uid}", 30):
-        return {"ok": False, "error": "Too many messages. Slow down."}
     sender = get_user(body.from_uid)
     recipient = get_user(body.to_uid)
     if not sender:
@@ -768,6 +814,11 @@ def chat_mark_read(body: SendMessageRequest):
     return {"ok": True}
 
 
+@app.websocket("/ws/{uid}")
+async def websocket_endpoint(ws: WebSocket, uid: str):
+    await handle_chat_ws(ws, uid)
+
+
 class AuthRegisterRequest(BaseModel):
     uid: str
     display_name: str
@@ -812,13 +863,6 @@ def auth_register(body: AuthRegisterRequest):
                 conn.execute("UPDATE users SET subjects = ? WHERE uid = ?", (",".join(body.subjects), body.uid))
     else:
         create_account(body.uid, body.display_name, body.password, body.subjects)
-    init_people = False
-    try:
-        from pipeline import init_people_user as ipu
-        ipu(body.uid, body.display_name, body.uid)
-        init_people = True
-    except:
-        pass
     token, refresh_token = create_auth_token_pair(body.uid)
     user = get_user(body.uid)
     return {"ok": True, "token": token, "refresh_token": refresh_token, "user": _format_user(user)}
@@ -901,6 +945,87 @@ def auth_sync(body: AuthSyncRequest):
     return {"ok": True}
 
 
+@app.post("/api/auth/forgot-password")
+def auth_forgot_password(email: str = Query(...)):
+    user = get_user_by_email(email)
+    if not user:
+        return {"ok": False, "error": "No account found with that email"}
+    uid = user["uid"]
+    token, _ = create_password_reset_token(uid)
+    sent, msg = send_verification_email(
+        email,
+        f"reset:{token}",
+        user.get("display_name", "User"),
+    )
+    if not sent:
+        return {"ok": False, "error": msg}
+    return {"ok": True, "message": "Password reset link sent to your email"}
+
+
+@app.post("/api/auth/reset-password")
+def auth_reset_password(reset_token: str = Query(...), new_password: str = Query(...)):
+    if len(new_password) < 4:
+        return {"ok": False, "error": "Password must be at least 4 characters"}
+    uid = verify_password_reset_token(reset_token)
+    if not uid:
+        return {"ok": False, "error": "Invalid or expired reset token"}
+    ok = update_user_password(uid, hash_password(new_password))
+    return {"ok": ok, "error": None}
+
+
+@app.post("/api/people/export")
+def people_export(uid: str = Query(...)):
+    data = export_user_data(uid)
+    if not data:
+        return {"ok": False, "error": "User not found"}
+    return {"ok": True, "data": data}
+
+
+@app.post("/api/people/delete")
+def people_delete(uid: str = Query(...)):
+    ok = delete_user_account(uid)
+    return {"ok": ok}
+
+
+class FeedbackSubmitRequest(BaseModel):
+    uid: str
+    feedback_type: str
+    target_id: str
+    rating: int
+    comment: str = ""
+
+
+@app.post("/api/feedback")
+def feedback_submit(body: FeedbackSubmitRequest):
+    result = submit_feedback(body.uid, body.feedback_type, body.target_id, body.rating, body.comment)
+    return result
+
+
+@app.get("/api/feedback/stats")
+def feedback_stats(feedback_type: str, target_id: str):
+    return get_feedback_stats(feedback_type, target_id)
+
+
+@app.get("/api/feedback/user")
+def feedback_user(uid: str, feedback_type: str = ""):
+    return {"feedback": get_user_feedback(uid, feedback_type or None)}
+
+
+@app.get("/api/feedback/top")
+def feedback_top(feedback_type: str, limit: int = 20):
+    return {"top": get_highest_rated(feedback_type, limit)}
+
+
+@app.get("/api/admin/stats")
+def admin_stats():
+    all_uids = get_all_uids()
+    return {
+        "total_users": len(all_uids),
+        "dedup_cache_size": dedup_size(),
+        "websocket_online": manager.online_users,
+    }
+
+
 def _format_user(user: dict) -> dict:
     try:
         achievements = json.loads(user.get("achievements", "[]"))
@@ -954,6 +1079,8 @@ def health_check():
         "active_providers": active_providers,
         "provider_chain_order": ["groq", "gemini", "nvidia", "openrouter", "together", "ollama", "huggingface", "cloudflare"],
         "local_index_exists": index_status()["exists"],
+        "cache_size": search_cache.size(),
+        "dedup_size": dedup_size(),
     }
 
 
@@ -967,12 +1094,14 @@ def get_public_url():
     return JSONResponse({"error": "No public URL available"}, status_code=404)
 
 
-APK_FILE = Path(__file__).resolve().parent.parent / "UniPath-v2.0.0-android.apk"
-
 @app.get("/api/download-apk")
 def download_apk():
-    if APK_FILE.exists():
-        return FileResponse(str(APK_FILE), media_type="application/vnd.android.package-archive", filename="UniPath-v2.0.0-android.apk")
+    apk_dir = Path(__file__).resolve().parent.parent
+    apk_files = sorted(apk_dir.glob("UniPath-v*.android.apk"), reverse=True)
+    if not apk_files:
+        apk_files = sorted(apk_dir.glob("*.apk"), reverse=True)
+    if apk_files:
+        return FileResponse(str(apk_files[0]), media_type="application/vnd.android.package-archive", filename=apk_files[0].name)
     return JSONResponse({"error": "APK not found"}, status_code=404)
 
 
@@ -980,7 +1109,7 @@ if FRONTEND_DIST.exists():
     @app.get("/")
     @app.get("/{path:path}")
     def serve_frontend(path: str = ""):
-        if path.startswith("api/") or path.startswith("uploads/"):
+        if path.startswith("api/") or path.startswith("uploads/") or path.startswith("ws/"):
             return JSONResponse({"error": "Not found"}, status_code=404)
         file = FRONTEND_DIST / "index.html"
         if file.exists():
@@ -990,5 +1119,5 @@ if FRONTEND_DIST.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", "8000"))
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=port, log_level="info")
+    port = int(os.getenv("PORT", str(settings.server_port)))
+    uvicorn.run(app, host=settings.server_host, port=port, log_level="info")

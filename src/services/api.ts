@@ -1,23 +1,103 @@
 import type { PeopleUser, Conversation, ChatMessage } from '../types'
+import { isElectron, isCapacitor } from '../lib/platform'
 
 const REMOTE_FALLBACK = 'https://unipath-app.fly.dev'
 
+const CANDIDATE_URLS = [
+  REMOTE_FALLBACK,
+  'https://unipath-proxy.fouadazad1234.workers.dev',
+  'http://localhost:8000',
+  'http://127.0.0.1:8000',
+  'https://96c2-110-44-116-125.ngrok-free.app',
+]
+
+const STORAGE_KEY = 'unipath_api_url'
+
 let _customBase: string | null = null
+let _discoveredBase: string | null = null
+let _discoveryInProgress: Promise<string | null> | null = null
 
 export function setApiBase(url: string) {
   _customBase = url
+  if (url) localStorage.setItem(STORAGE_KEY, url)
 }
 
 export function getApiBase(): string {
   if (_customBase) return _customBase
+  if (_discoveredBase) return _discoveredBase
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored) return stored
   const envUrl = import.meta.env.VITE_API_URL
   if (envUrl) return envUrl
-  if (import.meta.env.PROD && window.location.protocol !== 'file:') return window.location.origin
+  if (isElectron()) {
+    return 'http://localhost:8000'
+  }
+  if (isCapacitor()) {
+    return REMOTE_FALLBACK
+  }
+  if (import.meta.env.PROD && window.location.protocol !== 'file:') {
+    return window.location.origin
+  }
   return 'http://localhost:8000'
 }
 
 export function getRemoteFallbackBase(): string {
-  return _customBase || import.meta.env.VITE_API_URL || REMOTE_FALLBACK
+  return _customBase || _discoveredBase || import.meta.env.VITE_API_URL || REMOTE_FALLBACK
+}
+
+async function tryHealth(url: string, timeoutMs = 4000): Promise<boolean> {
+  try {
+    const res = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(timeoutMs) })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export async function discoverApiBase(): Promise<string | null> {
+  if (_discoveryInProgress) return _discoveryInProgress
+  if (_customBase) {
+    _discoveredBase = _customBase
+    return _customBase
+  }
+  _discoveryInProgress = (async () => {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const alive = await tryHealth(stored, 3000)
+      if (alive) {
+        _discoveredBase = stored
+        return stored
+      }
+    }
+    const results = await Promise.allSettled(
+      CANDIDATE_URLS.map(url => tryHealth(url).then(ok => (ok ? url : null)))
+    )
+    const liveUrl = results.find(
+      r => r.status === 'fulfilled' && r.value !== null
+    ) as PromiseFulfilledResult<string> | undefined
+    if (liveUrl) {
+      _discoveredBase = liveUrl.value
+      localStorage.setItem(STORAGE_KEY, liveUrl.value)
+      return liveUrl.value
+    }
+    if (stored) {
+      _discoveredBase = stored
+      return stored
+    }
+    return null
+  })()
+  const result = await _discoveryInProgress
+  _discoveryInProgress = null
+  return result
+}
+
+export function getDiscoveredBase(): string | null {
+  return _discoveredBase
+}
+
+export function resetDiscoveredBase() {
+  _discoveredBase = null
+  localStorage.removeItem(STORAGE_KEY)
 }
 
 export interface BackendSearchResult {
@@ -32,6 +112,7 @@ export interface BackendSearchResponse {
   answer: string | null
   results: BackendSearchResult[]
   error: string | null
+  cached?: boolean
 }
 
 export async function searchOpportunities(query: string, maxResults = 8): Promise<BackendSearchResponse> {
@@ -104,15 +185,20 @@ export interface DiscoveredOpportunity {
   cost: string
   eligibility: string
   skills: string
+  verified: boolean
+  verified_at: string
 }
 
 export interface DiscoverResponse {
   opportunities: DiscoveredOpportunity[]
+  total: number
+  offset: number
+  limit: number
   error: string | null
 }
 
-export async function discoverOpportunities(subjects: string[], limit = 20): Promise<DiscoverResponse> {
-  const params = new URLSearchParams({ subjects: subjects.join(','), limit: String(limit) })
+export async function discoverOpportunities(subjects: string[], limit = 20, offset = 0): Promise<DiscoverResponse> {
+  const params = new URLSearchParams({ subjects: subjects.join(','), limit: String(limit), offset: String(offset) })
   const res = await fetch(`${getApiBase()}/api/discover?${params}`, {
     signal: AbortSignal.timeout(30_000),
   })
@@ -380,7 +466,11 @@ async function tryFetchWithFallback(
   init: RequestInit,
   retries = 1,
 ): Promise<{ ok: boolean; token?: string; refresh_token?: string; user?: AuthUserData; error?: string }> {
-  const bases = [getApiBase(), getRemoteFallbackBase()]
+  let bases = [getApiBase()]
+  const fallback = getRemoteFallbackBase()
+  if (fallback && fallback !== bases[0]) bases.push(fallback)
+  const discovered = getDiscoveredBase()
+  if (discovered && !bases.includes(discovered)) bases.unshift(discovered)
   const seen = new Set<string>()
   for (const base of bases) {
     if (seen.has(base)) continue
@@ -393,7 +483,13 @@ async function tryFetchWithFallback(
         })
         const text = await res.text()
         const data = JSON.parse(text)
-        if (data.ok !== undefined) return data
+        if (data.ok !== undefined) {
+          if (discovered !== base) {
+            _discoveredBase = base
+            localStorage.setItem(STORAGE_KEY, base)
+          }
+          return data
+        }
       } catch {
         if (attempt < retries) {
           await new Promise((r) => setTimeout(r, 1000))
@@ -503,4 +599,138 @@ export async function cvAdvise(
   })
   if (!res.ok) throw new Error(`CV API error: ${res.status}`)
   return res.json()
+}
+
+/* ── Feedback API ── */
+
+export async function submitFeedback(
+  uid: string,
+  feedbackType: string,
+  targetId: string,
+  rating: number,
+  comment = '',
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, feedback_type: feedbackType, target_id: targetId, rating, comment }),
+    })
+    return res.json()
+  } catch {
+    return { ok: false, error: 'Server unreachable' }
+  }
+}
+
+export async function getFeedbackStats(feedbackType: string, targetId: string): Promise<{ up: number; down: number; total: number; score: number }> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/feedback/stats?feedback_type=${feedbackType}&target_id=${targetId}`)
+    return res.json()
+  } catch {
+    return { up: 0, down: 0, total: 0, score: 0 }
+  }
+}
+
+/* ── Forgot Password API ── */
+
+export async function forgotPassword(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/auth/forgot-password?email=${encodeURIComponent(email)}`, {
+      method: 'POST',
+    })
+    return res.json()
+  } catch {
+    return { ok: false, error: 'Server unreachable' }
+  }
+}
+
+export async function resetPassword(resetToken: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/auth/reset-password?reset_token=${encodeURIComponent(resetToken)}&new_password=${encodeURIComponent(newPassword)}`, {
+      method: 'POST',
+    })
+    return res.json()
+  } catch {
+    return { ok: false, error: 'Server unreachable' }
+  }
+}
+
+/* ── Data Export / Delete API ── */
+
+export async function exportUserData(uid: string): Promise<{ ok: boolean; data?: any; error?: string }> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/people/export?uid=${encodeURIComponent(uid)}`, {
+      method: 'POST',
+    })
+    return res.json()
+  } catch {
+    return { ok: false, error: 'Server unreachable' }
+  }
+}
+
+export async function deleteAccount(uid: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/people/delete?uid=${encodeURIComponent(uid)}`, {
+      method: 'POST',
+    })
+    return res.json()
+  } catch {
+    return { ok: false, error: 'Server unreachable' }
+  }
+}
+
+/* ── WebSocket Chat ── */
+
+let _ws: WebSocket | null = null
+let _wsCallbacks: Map<string, (data: any) => void> = new Map()
+let _wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+export function connectWebSocket(uid: string): WebSocket {
+  if (_ws && _ws.readyState === WebSocket.OPEN) return _ws
+
+  const base = getApiBase().replace(/^http/, 'ws')
+  _ws = new WebSocket(`${base}/ws/${uid}`)
+
+  _ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      _wsCallbacks.forEach((cb) => cb(data))
+    } catch {}
+  }
+
+  _ws.onclose = () => {
+    _ws = null
+    if (_wsReconnectTimer) clearTimeout(_wsReconnectTimer)
+    _wsReconnectTimer = setTimeout(() => connectWebSocket(uid), 3000)
+  }
+
+  _ws.onerror = () => {
+    _ws?.close()
+  }
+
+  return _ws
+}
+
+export function sendWSMessage(data: Record<string, any>) {
+  if (_ws && _ws.readyState === WebSocket.OPEN) {
+    _ws.send(JSON.stringify(data))
+  }
+}
+
+export function onWSMessage(callback: (data: any) => void): () => void {
+  const id = `cb_${Date.now()}_${Math.random()}`
+  _wsCallbacks.set(id, callback)
+  return () => { _wsCallbacks.delete(id) }
+}
+
+export function disconnectWebSocket() {
+  if (_ws) {
+    _ws.close()
+    _ws = null
+  }
+  if (_wsReconnectTimer) {
+    clearTimeout(_wsReconnectTimer)
+    _wsReconnectTimer = null
+  }
+  _wsCallbacks.clear()
 }

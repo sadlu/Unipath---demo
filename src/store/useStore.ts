@@ -107,6 +107,12 @@ interface AppState {
   dismissConfetti: () => void
   dismissAchievement: () => void
   resetAllProgress: () => void
+
+  forgotPassword: (email: string) => Promise<{ ok: boolean; message?: string; error?: string }>
+  resetPassword: (token: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>
+  exportData: () => Promise<any>
+  deleteAccount: () => Promise<{ ok: boolean; error?: string }>
+  submitFeedback: (type: string, targetId: string, rating: number, comment?: string) => Promise<void>
 }
 
 function syncToServer(userData: UserData) {
@@ -237,6 +243,7 @@ export const useStore = create<AppState>((set, get) => {
       if (token) {
         await api.authLogout(token)
       }
+      api.disconnectWebSocket()
       clearGuestData()
       sessionStorage.clear()
       set({
@@ -336,6 +343,40 @@ export const useStore = create<AppState>((set, get) => {
         userData: { ...GUEST_USER },
         currentCardIndex: 0,
       })
+    },
+
+    forgotPassword: async (email) => {
+      return api.forgotPassword(email)
+    },
+
+    resetPassword: async (token, newPassword) => {
+      return api.resetPassword(token, newPassword)
+    },
+
+    exportData: async () => {
+      const { userData } = get()
+      const result = await api.exportUserData(userData.uid)
+      if (result.ok && result.data) return result.data
+      throw new Error(result.error || 'Export failed')
+    },
+
+    deleteAccount: async () => {
+      const { userData } = get()
+      const result = await api.deleteAccount(userData.uid)
+      if (result.ok) {
+        clearGuestData()
+        api.clearToken()
+        set({
+          authMethod: null,
+          userData: { ...GUEST_USER },
+        })
+      }
+      return result
+    },
+
+    submitFeedback: async (type, targetId, rating, comment) => {
+      const { userData } = get()
+      await api.submitFeedback(userData.uid, type, targetId, rating, comment || '')
     },
   }
 })

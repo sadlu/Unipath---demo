@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
+from typing import Optional
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
@@ -36,7 +37,7 @@ if DATABASE_URL:
             return val.decode()
         return val
 
-    def _row_as_dict(row) -> dict:
+    def _row_as_dict(row) -> Optional[dict]:
         if row is None:
             return None
         return {k: _ensure_str(v) for k, v in row.items()}
@@ -137,28 +138,32 @@ if DATABASE_URL:
                     FOREIGN KEY (uid) REFERENCES users(uid)
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    token TEXT PRIMARY KEY,
+                    uid TEXT NOT NULL,
+                    created_at TEXT DEFAULT NOW(),
+                    expires_at TEXT DEFAULT '',
+                    used INTEGER DEFAULT 0,
+                    FOREIGN KEY (uid) REFERENCES users(uid)
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id SERIAL PRIMARY KEY,
+                    uid TEXT NOT NULL,
+                    feedback_type TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    rating INTEGER NOT NULL CHECK(rating IN (1, -1)),
+                    comment TEXT DEFAULT '',
+                    created_at TEXT DEFAULT NOW()
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_feedback_type_target ON feedback(feedback_type, target_id)")
             conn.commit()
             _migrate_add_auth(conn)
             _migrate_add_token_expires_at(conn)
             conn.commit()
-
-    def _check_image_url_col(conn):
-        cur = conn.cursor()
-        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'messages' AND column_name = 'image_url'")
-        if not cur.fetchone():
-            conn.execute("ALTER TABLE messages ADD COLUMN image_url TEXT DEFAULT ''")
-
-    def _check_bio_col(conn):
-        cur = conn.cursor()
-        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'bio'")
-        if not cur.fetchone():
-            conn.execute("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''")
-
-    def _check_subjects_col(conn):
-        cur = conn.cursor()
-        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'subjects'")
-        if not cur.fetchone():
-            conn.execute("ALTER TABLE users ADD COLUMN subjects TEXT DEFAULT ''")
 
     @contextmanager
     def get_db():
@@ -192,7 +197,7 @@ else:
     def _execute(conn, sql: str, params=()):
         return conn.execute(sql, params)
 
-    def _row_as_dict(row) -> dict:
+    def _row_as_dict(row) -> Optional[dict]:
         if row is None:
             return None
         return dict(row)
@@ -223,6 +228,36 @@ else:
                     FOREIGN KEY (uid) REFERENCES users(uid)
                 )
             """)
+
+    def _migrate_add_reset_tokens(conn):
+        cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='password_resets'")
+        if not cur.fetchone():
+            conn.execute("""
+                CREATE TABLE password_resets (
+                    token TEXT PRIMARY KEY,
+                    uid TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    expires_at TEXT DEFAULT '',
+                    used INTEGER DEFAULT 0,
+                    FOREIGN KEY (uid) REFERENCES users(uid)
+                )
+            """)
+
+    def _migrate_add_feedback(conn):
+        cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='feedback'")
+        if not cur.fetchone():
+            conn.execute("""
+                CREATE TABLE feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    uid TEXT NOT NULL,
+                    feedback_type TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    rating INTEGER NOT NULL CHECK(rating IN (1, -1)),
+                    comment TEXT DEFAULT '',
+                    created_at TEXT DEFAULT (datetime('now'))
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_feedback_type_target ON feedback(feedback_type, target_id)")
 
     def init_db():
         with get_conn() as conn:
@@ -287,6 +322,8 @@ else:
             _check_subjects_col(conn)
             _migrate_add_auth(conn)
             _migrate_add_token_expires_at(conn)
+            _migrate_add_reset_tokens(conn)
+            _migrate_add_feedback(conn)
 
     def _check_image_url_col(conn):
         cur = conn.execute("PRAGMA table_info(messages)")
@@ -316,27 +353,33 @@ else:
             conn.close()
 
 
-# ---------------------------------------------------------------------------
-# Shared auth helpers (no database dependency)
-# ---------------------------------------------------------------------------
-
 def hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    h = hashlib.sha256((salt + password).encode()).hexdigest()
-    return f"{salt}:{h}"
+    try:
+        import bcrypt
+        salt = bcrypt.gensalt(rounds=12)
+        return bcrypt.hashpw(password.encode(), salt).decode()
+    except ImportError:
+        salt = secrets.token_hex(16)
+        h = hashlib.sha256((salt + password).encode()).hexdigest()
+        return f"sha256:{salt}:{h}"
 
 
 def verify_password(password: str, stored: str) -> bool:
-    if ":" not in stored:
-        return False
-    salt, expected = stored.split(":", 1)
-    h = hashlib.sha256((salt + password).encode()).hexdigest()
-    return h == expected
+    if stored.startswith("$2b$") or stored.startswith("$2a$"):
+        try:
+            import bcrypt
+            return bcrypt.checkpw(password.encode(), stored.encode())
+        except ImportError:
+            return False
+    if stored.startswith("sha256:"):
+        parts = stored.split(":", 2)
+        if len(parts) != 3:
+            return False
+        _, salt, expected = parts
+        h = hashlib.sha256((salt + password).encode()).hexdigest()
+        return h == expected
+    return False
 
-
-# ---------------------------------------------------------------------------
-# Database CRUD — single implementation via _execute() / get_db()
-# ---------------------------------------------------------------------------
 
 def upsert_user(uid: str, display_name: str, email: str = "", avatar_url: str = ""):
     with get_db() as conn:
@@ -347,13 +390,13 @@ def upsert_user(uid: str, display_name: str, email: str = "", avatar_url: str = 
             _execute(conn, "INSERT INTO users (uid, display_name, email, avatar_url, last_seen) VALUES (?, ?, ?, ?, datetime('now'))", (uid, display_name, email, avatar_url))
 
 
-def get_user(uid: str) -> dict | None:
+def get_user(uid: str) -> Optional[dict]:
     with get_db() as conn:
         cur = _execute(conn, "SELECT * FROM users WHERE uid = ?", (uid,))
         return _row_as_dict(cur.fetchone())
 
 
-def get_user_by_email(email: str) -> dict | None:
+def get_user_by_email(email: str) -> Optional[dict]:
     with get_db() as conn:
         cur = _execute(conn, "SELECT * FROM users WHERE email = ?", (email,))
         return _row_as_dict(cur.fetchone())
@@ -396,8 +439,16 @@ def verify_code(email: str, code: str) -> bool:
             if (datetime.now(timezone.utc) - created).total_seconds() > 900:
                 return False
         except (ValueError, TypeError):
-            pass
+            return False
         return True
+
+
+def cleanup_expired_verifications():
+    with get_db() as conn:
+        if _is_pg:
+            _execute(conn, "DELETE FROM email_verifications WHERE created_at < NOW() - INTERVAL '15 minutes'")
+        else:
+            _execute(conn, "DELETE FROM email_verifications WHERE created_at < datetime('now', '-15 minutes')")
 
 
 def send_message(from_uid: str, to_uid: str, content: str, image_url: str = "") -> dict:
@@ -453,9 +504,7 @@ def get_messages(uid_a: str, uid_b: str, limit: int = 50) -> list[dict]:
 
 
 def _get_affected_count(conn, cur) -> int:
-    if _is_pg:
-        return cur.rowcount
-    return conn.total_changes
+    return cur.rowcount
 
 
 def follow_user(follower_uid: str, following_uid: str) -> bool:
@@ -496,7 +545,7 @@ def is_following(follower_uid: str, following_uid: str) -> bool:
         return cur.fetchone() is not None
 
 
-def update_user_profile(uid: str, display_name: str | None = None, avatar_url: str | None = None, bio: str | None = None) -> bool:
+def update_user_profile(uid: str, display_name: Optional[str] = None, avatar_url: Optional[str] = None, bio: Optional[str] = None) -> bool:
     fields = []
     params: list = []
     if display_name is not None:
@@ -538,39 +587,48 @@ def create_auth_token_pair(uid: str) -> tuple[str, str]:
     return access, refresh
 
 
-def get_uid_by_token(token: str) -> str | None:
+def _parse_expiry(expires: str) -> Optional[datetime]:
+    try:
+        dt = datetime.fromisoformat(expires.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except (ValueError, TypeError):
+        return None
+
+
+def get_uid_by_token(token: str) -> Optional[str]:
     with get_db() as conn:
         cur = _execute(conn, "SELECT uid, expires_at FROM auth_tokens WHERE token = ?", (token,))
         row = cur.fetchone()
         if not row:
             return None
-        try:
-            expires = row["expires_at"]
-            if isinstance(expires, str):
-                expires = datetime.fromisoformat(expires.replace("Z", "+00:00"))
-            if datetime.now(timezone.utc) > expires:
-                _execute(conn, "DELETE FROM auth_tokens WHERE token = ?", (token,))
-                return None
-        except (ValueError, TypeError):
-            pass
+        expires_raw = row["expires_at"]
+        if not expires_raw:
+            return None
+        expires = _parse_expiry(expires_raw)
+        if expires is None:
+            _execute(conn, "DELETE FROM auth_tokens WHERE token = ?", (token,))
+            return None
+        if datetime.now(timezone.utc) > expires:
+            _execute(conn, "DELETE FROM auth_tokens WHERE token = ?", (token,))
+            return None
         return row["uid"]
 
 
-def refresh_auth_token(refresh_token: str) -> tuple[str, str] | None:
+def refresh_auth_token(refresh_token: str) -> Optional[tuple[str, str]]:
     with get_db() as conn:
         cur = _execute(conn, "SELECT uid, expires_at FROM refresh_tokens WHERE token = ?", (refresh_token,))
         row = cur.fetchone()
         if not row:
             return None
-        try:
-            expires = row["expires_at"]
-            if isinstance(expires, str):
-                expires = datetime.fromisoformat(expires.replace("Z", "+00:00"))
-            if datetime.now(timezone.utc) > expires:
-                _execute(conn, "DELETE FROM refresh_tokens WHERE token = ?", (refresh_token,))
-                return None
-        except (ValueError, TypeError):
-            pass
+        expires_raw = row["expires_at"]
+        if not expires_raw:
+            return None
+        expires = _parse_expiry(expires_raw)
+        if expires is None or datetime.now(timezone.utc) > expires:
+            _execute(conn, "DELETE FROM refresh_tokens WHERE token = ?", (refresh_token,))
+            return None
         uid = row["uid"]
         _execute(conn, "DELETE FROM refresh_tokens WHERE token = ?", (refresh_token,))
     access, new_refresh = create_auth_token_pair(uid)
@@ -582,7 +640,7 @@ def delete_auth_token(token: str):
         _execute(conn, "DELETE FROM auth_tokens WHERE token = ?", (token,))
 
 
-def create_account(uid: str, display_name: str, password: str, subjects: list[str] | None = None) -> dict:
+def create_account(uid: str, display_name: str, password: str, subjects: Optional[list[str]] = None) -> dict:
     pwh = hash_password(password)
     subj_str = ",".join(subjects) if subjects else ""
     with get_db() as conn:
@@ -590,7 +648,7 @@ def create_account(uid: str, display_name: str, password: str, subjects: list[st
     return get_user(uid)
 
 
-def authenticate(uid: str, password: str) -> dict | None:
+def authenticate(uid: str, password: str) -> Optional[dict]:
     user = get_user(uid)
     if not user:
         return None
@@ -602,7 +660,7 @@ def authenticate(uid: str, password: str) -> dict | None:
     return user
 
 
-def sync_user_data(uid: str, xp: int | None = None, level: int | None = None, streak_days: int | None = None, subjects: list[str] | None = None, slider_value: int | None = None, achievements: list[str] | None = None, settings: dict | None = None):
+def sync_user_data(uid: str, xp: Optional[int] = None, level: Optional[int] = None, streak_days: Optional[int] = None, subjects: Optional[list[str]] = None, slider_value: Optional[int] = None, achievements: Optional[list[str]] = None, settings: Optional[dict] = None):
     fields = []
     params: list = []
     if xp is not None:
@@ -634,8 +692,75 @@ def sync_user_data(uid: str, xp: int | None = None, level: int | None = None, st
         _execute(conn, f"UPDATE users SET {', '.join(fields)} WHERE uid = ?", params)
 
 
-def check_pending_email(uid: str) -> str | None:
+def check_pending_email(uid: str) -> Optional[str]:
     user = get_user(uid)
     if user and user["email"] and not user["email_verified"]:
         return user["email"]
     return None
+
+
+def create_password_reset_token(uid: str) -> tuple[str, str]:
+    token = secrets.token_hex(32)
+    with get_db() as conn:
+        _execute(conn, "INSERT INTO password_resets (token, uid, expires_at) VALUES (?, ?, datetime('now', '+1 hour'))", (token, uid))
+    return token, uid
+
+
+def verify_password_reset_token(token: str) -> Optional[str]:
+    with get_db() as conn:
+        cur = _execute(conn, "SELECT uid, expires_at, used FROM password_resets WHERE token = ?", (token,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        if row.get("used"):
+            return None
+        expires_raw = row["expires_at"]
+        if not expires_raw:
+            return None
+        expires = _parse_expiry(expires_raw)
+        if expires is None or datetime.now(timezone.utc) > expires:
+            _execute(conn, "DELETE FROM password_resets WHERE token = ?", (token,))
+            return None
+        _execute(conn, "UPDATE password_resets SET used = 1 WHERE token = ?", (token,))
+        return row["uid"]
+
+
+def delete_user_account(uid: str) -> bool:
+    with get_db() as conn:
+        _execute(conn, "DELETE FROM messages WHERE from_uid = ? OR to_uid = ?", (uid, uid))
+        _execute(conn, "DELETE FROM follows WHERE follower_uid = ? OR following_uid = ?", (uid, uid))
+        _execute(conn, "DELETE FROM auth_tokens WHERE uid = ?", (uid,))
+        _execute(conn, "DELETE FROM refresh_tokens WHERE uid = ?", (uid,))
+        _execute(conn, "DELETE FROM feedback WHERE uid = ?", (uid,))
+        _execute(conn, "DELETE FROM password_resets WHERE uid = ?", (uid,))
+        _execute(conn, "DELETE FROM email_verifications WHERE email IN (SELECT email FROM users WHERE uid = ?)", (uid,))
+        _execute(conn, "DELETE FROM users WHERE uid = ?", (uid,))
+    return True
+
+
+def export_user_data(uid: str) -> Optional[dict]:
+    user = get_user(uid)
+    if not user:
+        return None
+    with get_db() as conn:
+        cur = _execute(conn, "SELECT * FROM messages WHERE from_uid = ? OR to_uid = ? ORDER BY created_at ASC", (uid, uid))
+        messages = _rows_as_list(cur.fetchall())
+        cur = _execute(conn, "SELECT * FROM feedback WHERE uid = ? ORDER BY created_at ASC", (uid,))
+        feedback = _rows_as_list(cur.fetchall())
+        cur = _execute(conn, "SELECT following_uid FROM follows WHERE follower_uid = ?", (uid,))
+        following = [r["following_uid"] for r in cur.fetchall()]
+        cur = _execute(conn, "SELECT follower_uid FROM follows WHERE following_uid = ?", (uid,))
+        followers = [r["follower_uid"] for r in cur.fetchall()]
+    return {
+        "user": dict(user),
+        "messages": messages,
+        "feedback": feedback,
+        "following": following,
+        "followers": followers,
+    }
+
+
+def get_all_uids() -> list[str]:
+    with get_db() as conn:
+        cur = _execute(conn, "SELECT uid FROM users ORDER BY uid")
+        return [r["uid"] for r in cur.fetchall()]

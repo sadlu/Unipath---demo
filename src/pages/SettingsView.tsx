@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { registerEmail, verifyEmail, getProfile, uploadAvatar, updateProfile, getApiBase, checkApiHealth, getStoredToken, authChangePassword, clearToken } from '../services/api'
+import { registerEmail, verifyEmail, getProfile, uploadAvatar, updateProfile, getApiBase, getStoredToken, authChangePassword } from '../services/api'
 import * as localAuth from '../localAuth'
 
 function TiltCard({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -361,7 +361,7 @@ export default function SettingsView() {
               {(userData as any).photoURL ? (
                 <img src={(userData as any).photoURL} className="w-full h-full object-cover" alt="" />
               ) : (
-                userData.displayName[0]
+                userData.displayName?.charAt(0) || '?'
               )}
             </div>
             <label className="absolute -bottom-1 -right-1 w-7 h-7 md:w-6 md:h-6 bg-gradient-to-r from-[#00F0FF] to-[#7C5CFC] rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity shadow-lg">

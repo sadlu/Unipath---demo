@@ -105,7 +105,7 @@ export default function PeopleView({ onStartChat }: { onStartChat?: (uid: string
               <div className="w-20 h-20 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-[#00F0FF] to-[#7C5CFC] flex items-center justify-center text-2xl md:text-xl font-black text-white overflow-hidden shadow-lg shadow-[#00F0FF]/30">
                 {selectedUser.avatar_url ? (
                   <img src={selectedUser.avatar_url.startsWith('http') ? selectedUser.avatar_url : `${getApiBase()}${selectedUser.avatar_url}`} className="w-full h-full object-cover" alt="" />
-                ) : selectedUser.display_name[0]}
+                ) : selectedUser.display_name?.charAt(0) || '?'}
               </div>
               <h3 className="text-lg font-extrabold text-white">{selectedUser.display_name}</h3>
               <div className="flex items-center gap-1.5 text-xs text-slate-500">

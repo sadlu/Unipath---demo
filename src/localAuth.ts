@@ -1,3 +1,9 @@
+/**
+ * DEPRECATED: Local auth is being phased out in favor of server-side auth.
+ * New accounts should use api.authRegister() / authLogin() instead.
+ * This module remains for backward compatibility with existing local accounts.
+ * See src/services/api.ts for the current auth implementation.
+ */
 import type { UserData } from './types'
 
 const STORAGE_PREFIX = 'unipath_user_'

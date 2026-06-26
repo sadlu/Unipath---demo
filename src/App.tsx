@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { useStore } from './store/useStore'
 import { useIsMobile } from './hooks/useIsMobile'
@@ -20,7 +20,8 @@ import ConfettiOverlay from './components/ConfettiOverlay'
 import TutorialOverlay from './components/TutorialOverlay'
 import CosmicBackground from './components/CosmicBackground'
 
-import { initPeopleUser, setApiBase } from './services/api'
+import { initPeopleUser, setApiBase, discoverApiBase } from './services/api'
+import { isElectron, isCapacitor } from './lib/platform'
 
 export default function App() {
   const isMobile = useIsMobile()
@@ -30,6 +31,7 @@ export default function App() {
   const preferences = useStore((s) => s.preferences)
   const [chatTargetUid, setChatTargetUid] = useState<string | undefined>(undefined)
   const [peopleInitialized, setPeopleInitialized] = useState(false)
+  const discoveryDone = useRef(false)
 
   useEffect(() => {
     const api = (window as any).electronAPI
@@ -41,6 +43,17 @@ export default function App() {
     if (api?.onBackendReady) {
       api.onBackendReady((url: string) => {
         setApiBase(url)
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isElectron() || discoveryDone.current) return
+    discoveryDone.current = true
+    if (isCapacitor()) {
+      discoverApiBase().then(url => {
+        if (url) console.log('[UniPath] Auto-discovered backend:', url)
+        else console.warn('[UniPath] No backend found via auto-discovery')
       })
     }
   }, [])
@@ -59,13 +72,18 @@ export default function App() {
     }
   }, [authMethod, userData.uid])
 
+  const applyBgTheme = useCallback((isDark: boolean) => {
+    document.documentElement.style.setProperty('--bg-primary', isDark ? '#13111C' : '#FFFFFF')
+    document.documentElement.style.setProperty('--bg-secondary', isDark ? '#1C192C' : '#F5F5F7')
+  }, [])
+
   useEffect(() => {
     const isDark = preferences.theme === 'dark' ||
       (preferences.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     document.documentElement.classList.toggle('dark', isDark)
     applyBgTheme(isDark)
     document.documentElement.style.setProperty('--accent', preferences.accentColor)
-  }, [])
+  }, [preferences.theme, preferences.accentColor, applyBgTheme])
 
   useEffect(() => {
     if (preferences.theme === 'system') {
@@ -78,11 +96,6 @@ export default function App() {
       return () => mq.removeEventListener('change', handler)
     }
   }, [preferences.theme])
-
-  function applyBgTheme(isDark: boolean) {
-    document.documentElement.style.setProperty('--bg-primary', isDark ? '#13111C' : '#FFFFFF')
-    document.documentElement.style.setProperty('--bg-secondary', isDark ? '#1C192C' : '#F5F5F7')
-  }
 
   function handleStartChat(uid: string) {
     setChatTargetUid(uid)

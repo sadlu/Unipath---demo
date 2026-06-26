@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, ArrowLeft, ChevronRight, MessageCircle, User, ShieldAlert, BadgeCheck, ImagePlus, Plus, Search } from 'lucide-react'
+import { Send, ArrowLeft, ChevronRight, MessageCircle, ShieldAlert, BadgeCheck, ImagePlus, Plus, Search } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -37,8 +37,20 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
     if (document.hidden && window.electronAPI?.showNotification) window.electronAPI.showNotification(title, body)
   }, [])
 
+  const loadConversations = useCallback(async () => {
+    try { const convos = await getConversations(userData.uid); setConversations(convos) } catch {}
+  }, [userData.uid])
+
+  const loadProfile = useCallback(async (uid: string) => {
+    try { const profile = await getProfile(uid); setActiveUser(profile) } catch {}
+  }, [])
+
+  const loadMessages = useCallback(async (uid: string) => {
+    try { const msgs = await getMessages(userData.uid, uid); lastMsgCount.current = msgs.length; setMessages(msgs) } catch {}
+  }, [userData.uid])
+
   useEffect(() => { getProfile(userData.uid).then(p => { if (p) setMyBackendVerified(Boolean(p.email_verified)) }).catch(() => {}) }, [userData.uid])
-  useEffect(() => { if (startChatUid) { setActiveChat(startChatUid); loadProfile(startChatUid); loadMessages(startChatUid) } }, [startChatUid])
+  useEffect(() => { if (startChatUid) { setActiveChat(startChatUid); loadProfile(startChatUid); loadMessages(startChatUid) } }, [startChatUid, loadProfile, loadMessages])
   useEffect(() => { if (!activeChat) loadConversations() }, [activeChat])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
   useEffect(() => {
@@ -50,7 +62,7 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
       const typing = await getTypingStatus(activeChat, userData.uid); setOtherTyping(typing)
     }, 3000)
     return () => clearInterval(interval)
-  }, [activeChat, activeUser, userData.uid, showNotification])
+  }, [activeChat, activeUser, userData.uid, showNotification, loadMessages])
   useEffect(() => { if (activeChat) markMessagesRead(userData.uid, activeChat) }, [activeChat, messages, userData.uid])
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>()
@@ -61,10 +73,6 @@ export default function ChatView({ startChatUid, onBack }: ChatViewProps) {
     if (typingTimeout.current) clearTimeout(typingTimeout.current)
     typingTimeout.current = setTimeout(() => sendTypingIndicator(userData.uid, activeChat, false), 2000)
   }
-
-  async function loadConversations() { try { const convos = await getConversations(userData.uid); setConversations(convos) } catch {} }
-  async function loadProfile(uid: string) { try { const profile = await getProfile(uid); setActiveUser(profile) } catch {} }
-  async function loadMessages(uid: string) { try { const msgs = await getMessages(userData.uid, uid); lastMsgCount.current = msgs.length; setMessages(msgs) } catch {} }
 
   function selectChat(uid: string) { setActiveChat(uid); loadProfile(uid); loadMessages(uid) }
 

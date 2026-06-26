@@ -8,11 +8,31 @@
   --accent: #7C5CFC;
   --neon-cyan: #00F0FF;
   --neon-purple: #7C5CFC;
+  --text-primary: #F1F5F9;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --surface: rgba(10, 8, 23, 0.45);
+  --surface-strong: rgba(10, 8, 23, 0.55);
+  --surface-input: #0D0B18;
+  --surface-card: rgba(255,255,255,0.03);
+  --border-subtle: rgba(0, 240, 255, 0.15);
+  --titlebar-bg: rgba(30, 27, 46, 0.5);
+  --btn-hover-bg: rgba(255,255,255,0.1);
 }
 
 :root:not(.dark) {
   --bg-primary: #FFFFFF;
   --bg-secondary: #F5F5F7;
+  --text-primary: #1D1D1F;
+  --text-secondary: #4A4A4C;
+  --text-muted: #8E8E93;
+  --surface: rgba(255, 255, 255, 0.75);
+  --surface-strong: rgba(255, 255, 255, 0.88);
+  --surface-input: #FFFFFF;
+  --surface-card: rgba(0,0,0,0.02);
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --titlebar-bg: rgba(255, 255, 255, 0.75);
+  --btn-hover-bg: rgba(0, 0, 0, 0.06);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -41,19 +61,25 @@ body {
 
 /* ── Holographic Glassmorphism 3.0 ── */
 .holo-glass {
-  background: rgba(10, 8, 23, 0.45);
+  background: var(--surface);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(0, 240, 255, 0.15);
+  border: 1px solid var(--border-subtle);
   box-shadow: 0 0 30px rgba(124, 92, 252, 0.08), inset 0 0 30px rgba(0, 240, 255, 0.03);
 }
 
 .holo-glass-strong {
-  background: rgba(10, 8, 23, 0.55);
+  background: var(--surface-strong);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   border: 1px solid rgba(0, 240, 255, 0.2);
   box-shadow: 0 0 40px rgba(124, 92, 252, 0.12), inset 0 0 40px rgba(0, 240, 255, 0.05);
+}
+
+:root:not(.dark) .holo-glass-strong {
+  background: var(--surface-strong);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 .holo-border {

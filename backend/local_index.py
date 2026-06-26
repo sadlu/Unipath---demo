@@ -1,15 +1,3 @@
-"""
-Local Index Strategy — zero-cost Nepal education notice scraper + AI payload controller.
-
-CLI:
-  python local_index.py scrape           # fetch 5 portals → scraped_notices.txt
-  python local_index.py ask "question"    # answer from index via LLM (or offline grep)
-  python local_index.py status            # show index stats
-
-Importable:
-  from local_index import scrape_all, ask, load_index
-"""
-
 import os
 import re
 import sys
@@ -23,11 +11,9 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
-logger = logging.getLogger(__name__)
+from llm_service import generate_answer_with_fallback
 
-# ---------------------------------------------------------------------------
-# 1.  LINK LIBRARY  — 5 credible Nepalese notice & education portals
-# ---------------------------------------------------------------------------
+logger = logging.getLogger(__name__)
 
 SOURCE_LINKS: list[dict] = [
     {
@@ -64,13 +50,9 @@ else:
     SCRAPED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scraped_notices.txt")
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) UniPath-LocalIndex/1.0"
 REQUEST_TIMEOUT = 25
-CRAWL_DELAY = 2.0  # seconds between requests — be polite
+CRAWL_DELAY = 2.0
 MAX_PAGE_CHARS = 10000
 
-
-# ---------------------------------------------------------------------------
-# 2.  SCRAPER — extracts headlines, anchor links, dates, and body text
-# ---------------------------------------------------------------------------
 
 @dataclass
 class ScrapedPage:
@@ -123,12 +105,10 @@ def _extract_links(soup: BeautifulSoup, base_url: str) -> list[dict]:
 
 def _extract_dates(soup: BeautifulSoup) -> list[str]:
     dates: list[str] = []
-    # common date patterns in Nepali edu portals
     for tag in soup.find_all(["time", "span", "div", "li", "p"]):
         text = tag.get_text(strip=True)
         if not text:
             continue
-        # match dates like "2025-01-15", "Jan 15, 2025", "15 Jan 2025", "01/15/2025"
         if re.search(
             r"\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b|"
             r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},?\s*\d{4}\b|"
@@ -188,19 +168,19 @@ def _format_page(page: ScrapedPage) -> str:
     if page.headlines:
         lines.append("--- HEADLINES ---")
         for h in page.headlines:
-            lines.append(f"  • {h}")
+            lines.append(f"  \u2022 {h}")
         lines.append("")
 
     if page.dates:
         lines.append("--- DATES FOUND ---")
         for d in page.dates:
-            lines.append(f"  • {d}")
+            lines.append(f"  \u2022 {d}")
         lines.append("")
 
     if page.links:
         lines.append("--- LINKS ---")
-        for link in page.links[:30]:  # cap links per page
-            lines.append(f"  • {link['text']}  →  {link['href']}")
+        for link in page.links[:30]:
+            lines.append(f"  \u2022 {link['text']}  \u2192  {link['href']}")
         if len(page.links) > 30:
             lines.append(f"  (... {len(page.links) - 30} more links)")
         lines.append("")
@@ -229,20 +209,20 @@ def scrape_all() -> str:
             l = len(result.links)
             d = len(result.dates)
             b = len(result.body_text)
-            logger.info(f"  ✓  {h} headlines, {l} links, {d} dates, {b} chars")
+            logger.info(f"  \u2713  {h} headlines, {l} links, {d} dates, {b} chars")
         else:
-            logger.warning(f"  ✗  FAILED")
+            logger.warning(f"  \u2717  FAILED")
         if i < total:
             time.sleep(CRAWL_DELAY)
 
     _write_index(entries)
-    logger.info(f"Done — {len(entries)}/{total} sources saved to {SCRAPED_FILE}")
+    logger.info(f"Done \u2014 {len(entries)}/{total} sources saved to {SCRAPED_FILE}")
     return SCRAPED_FILE
 
 
 def _write_index(entries: list[ScrapedPage]):
     parts: list[str] = []
-    parts.append(f"# Local Index — scraped {datetime.now(timezone.utc).isoformat()}")
+    parts.append(f"# Local Index \u2014 scraped {datetime.now(timezone.utc).isoformat()}")
     parts.append(f"# Sources: {len(entries)}")
     parts.append("")
 
@@ -252,10 +232,6 @@ def _write_index(entries: list[ScrapedPage]):
     with open(SCRAPED_FILE, "w", encoding="utf-8") as f:
         f.write("\n".join(parts))
 
-
-# ---------------------------------------------------------------------------
-# 3.  AI PAYLOAD CONTROLLER
-# ---------------------------------------------------------------------------
 
 RIGID_SYSTEM_PROMPT = """You are a localized data-extraction engine for Nepal educational paths.
 Your ONLY source of truth is the provided [Scraped Data Context] compiled from local Nepalese portals.
@@ -281,7 +257,7 @@ def index_status(filepath: str = SCRAPED_FILE) -> dict:
     text = load_index(filepath)
     sources = len(re.findall(r"^=== (.+) ===", text or "", re.MULTILINE))
     first_line = (text or "").splitlines()[0]
-    scraped_at = first_line.replace("# Local Index — scraped ", "").strip() if first_line.startswith("#") else None
+    scraped_at = first_line.replace("# Local Index \u2014 scraped ", "").strip() if first_line.startswith("#") else None
 
     return {
         "exists": True,
@@ -293,8 +269,6 @@ def index_status(filepath: str = SCRAPED_FILE) -> dict:
 
 def ask(
     question: str,
-    openai_api_key: Optional[str] = None,
-    model: str = "gpt-4o",
     filepath: str = SCRAPED_FILE,
 ) -> str:
     context = load_index(filepath)
@@ -304,37 +278,17 @@ def ask(
             "to build scraped_notices.txt."
         )
 
-    api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        return _keyword_fallback(question, context)
-
-    try:
-        from openai import OpenAI
-    except ImportError:
-        return _keyword_fallback(question, context)
-
-    client = OpenAI(api_key=api_key)
-
-    user_prompt = (
-        "[Scraped Data Context]\n"
-        f"{context}\n\n"
-        f"User Question: {question}\n\n"
-        "Answer using ONLY the context above. Follow the strict rules."
+    snippets = [{"title": "Local Index Context", "url": "", "snippet": context[:3000]}]
+    answer, _ = generate_answer_with_fallback(
+        user_query=question,
+        search_snippets=snippets,
+        system_prompt=RIGID_SYSTEM_PROMPT,
+        temperature=0.1,
+        max_tokens=1500,
     )
-
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": RIGID_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.1,
-            max_tokens=1500,
-        )
-        return resp.choices[0].message.content.strip()
-    except Exception as e:
-        return f"LLM call failed: {e}\n\nFallback:\n{_keyword_fallback(question, context)}"
+    if answer:
+        return answer
+    return _keyword_fallback(question, context)
 
 
 def _keyword_fallback(question: str, context: str) -> str:
@@ -352,11 +306,6 @@ def _keyword_fallback(question: str, context: str) -> str:
             seen.add(stripped)
             result.append(stripped)
     return "\n".join(result[:40])
-
-
-# ---------------------------------------------------------------------------
-# 4.  CLI
-# ---------------------------------------------------------------------------
 
 
 def main():
